@@ -21,7 +21,10 @@ export function axisFromKeys(held: ReadonlySet<string>): Vector2 {
 
 export class Keyboard {
   private held = new Set<string>();
+  private justPressed = new Set<string>();
+
   private onKeyDown = (e: KeyboardEvent): void => {
+    if (!this.held.has(e.code)) this.justPressed.add(e.code);
     this.held.add(e.code);
   };
   private onKeyUp = (e: KeyboardEvent): void => {
@@ -40,6 +43,15 @@ export class Keyboard {
 
   isHeld(code: string): boolean {
     return this.held.has(code);
+  }
+
+  /** Edge-triggered: true at most once per physical key press. */
+  consumePress(code: string): boolean {
+    if (this.justPressed.has(code)) {
+      this.justPressed.delete(code);
+      return true;
+    }
+    return false;
   }
 
   getMoveAxis(): Vector2 {

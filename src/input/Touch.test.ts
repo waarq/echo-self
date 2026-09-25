@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { axisFromDrag, TOUCH_DEADZONE_PX, TOUCH_MAX_DRAG_PX } from './Touch';
+import {
+  axisFromDrag,
+  classifyRelease,
+  TOUCH_DASH_DRAG_PX,
+  TOUCH_DEADZONE_PX,
+  TOUCH_MAX_DRAG_PX,
+  TOUCH_TAP_MAX_DRAG_PX,
+  TOUCH_TAP_MAX_DURATION_MS,
+} from './Touch';
 
 describe('axisFromDrag', () => {
   it('is zero within the deadzone', () => {
@@ -30,5 +38,27 @@ describe('axisFromDrag', () => {
     const result = axisFromDrag({ x: 0, y: TOUCH_MAX_DRAG_PX });
     expect(result.x).toBeCloseTo(0);
     expect(result.y).toBeGreaterThan(0);
+  });
+});
+
+describe('classifyRelease', () => {
+  it('classifies a long drag release as dash', () => {
+    expect(classifyRelease(TOUCH_DASH_DRAG_PX, 500)).toBe('dash');
+  });
+
+  it('classifies a quick short tap as attack', () => {
+    expect(classifyRelease(2, 100)).toBe('attack');
+  });
+
+  it('classifies a slow short movement as neither', () => {
+    expect(classifyRelease(2, TOUCH_TAP_MAX_DURATION_MS + 100)).toBe('none');
+  });
+
+  it('classifies a medium drag that is neither a tap nor a dash as none', () => {
+    expect(classifyRelease(TOUCH_TAP_MAX_DRAG_PX + 5, 500)).toBe('none');
+  });
+
+  it('prioritizes dash when drag distance qualifies even if held briefly', () => {
+    expect(classifyRelease(TOUCH_DASH_DRAG_PX + 10, 50)).toBe('dash');
   });
 });

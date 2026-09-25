@@ -1,7 +1,11 @@
 import type { Vector2 } from '../core/Vector2';
+import { normalize } from '../core/Vector2';
 
 export const TOUCH_DEADZONE_PX = 6;
 export const TOUCH_MAX_DRAG_PX = 70;
+export const TOUCH_DASH_DRAG_PX = 40; // release beyond this distance = dash
+export const TOUCH_TAP_MAX_DURATION_MS = 220; // release before this + little drag = attack
+export const TOUCH_TAP_MAX_DRAG_PX = 12;
 
 /** Pure: turns a raw drag delta (current - origin, in pixels) into a movement
  * axis. Dead-zoned so tiny finger jitter doesn't register as input, and
@@ -17,15 +21,30 @@ export function axisFromDrag(delta: Vector2): Vector2 {
   return { x: (delta.x / dist) * intensity, y: (delta.y / dist) * intensity };
 }
 
+export type ReleaseGesture = 'dash' | 'attack' | 'none';
+
+/** Pure: classifies how a touch ended — a fast short tap is an attack, a
+ * meaningful drag-and-release is a dash (PRD §36's "quick release -> dash",
+ * extended with a tap for the other core action). */
+export function classifyRelease(dragDistance: number, holdDurationMs: number): ReleaseGesture {
+  if (dragDistance >= TOUCH_DASH_DRAG_PX) return 'dash';
+  if (dragDistance <= TOUCH_TAP_MAX_DRAG_PX && holdDurationMs <= TOUCH_TAP_MAX_DURATION_MS) {
+    return 'attack';
+  }
+  return 'none';
+}
+
 /** Drag-to-move touch controller: finger position relative to where the
- * touch started defines direction + intensity (PRD §36). A quick release
- * (short hold, meaningful drag) is exposed for the dash trigger in Phase 2. */
+ * touch started defines direction + intensity (PRD §36). Releasing
+ * classifies as a dash or attack gesture per classifyRelease(). */
 export class TouchInput {
   private origin: Vector2 | null = null;
   private current: Vector2 | null = null;
   private pointerId: number | null = null;
   private touchStartTime = 0;
   private axis: Vector2 = { x: 0, y: 0 };
+  private lastDirection: Vector2 = { x: 1, y: 0 };
+  private pendingRelease: ReleaseGesture = 'none';
 
   private onPointerDown = (e: PointerEvent): void => {
     if (e.pointerType !== 'touch' || this.pointerId !== null) return;
@@ -40,10 +59,17 @@ export class TouchInput {
     this.current = { x: e.clientX, y: e.clientY };
     const delta = { x: this.current.x - this.origin.x, y: this.current.y - this.origin.y };
     this.axis = axisFromDrag(delta);
+    if (this.axis.x !== 0 || this.axis.y !== 0) {
+      this.lastDirection = normalize(delta);
+    }
   };
 
   private onPointerUp = (e: PointerEvent): void => {
-    if (e.pointerId !== this.pointerId) return;
+    if (e.pointerId !== this.pointerId || !this.origin || !this.current) return;
+    const dist = Math.hypot(this.current.x - this.origin.x, this.current.y - this.origin.y);
+    const duration = performance.now() - this.touchStartTime;
+    this.pendingRelease = classifyRelease(dist, duration);
+
     this.pointerId = null;
     this.origin = null;
     this.current = null;
@@ -68,11 +94,29 @@ export class TouchInput {
     return this.pointerId !== null;
   }
 
-  get holdDurationMs(): number {
-    return this.active ? performance.now() - this.touchStartTime : 0;
-  }
-
   getMoveAxis(): Vector2 {
     return this.axis;
+  }
+
+  /** Last non-zero drag direction — used as the dash direction when the
+   * player releases without also holding a keyboard direction. */
+  getLastDirection(): Vector2 {
+    return this.lastDirection;
+  }
+
+  consumeDash(): boolean {
+    if (this.pendingRelease === 'dash') {
+      this.pendingRelease = 'none';
+      return true;
+    }
+    return false;
+  }
+
+  consumeAttack(): boolean {
+    if (this.pendingRelease === 'attack') {
+      this.pendingRelease = 'none';
+      return true;
+    }
+    return false;
   }
 }
