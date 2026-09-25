@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Phases 0–8 are done (project foundation; movement prototype; dash + combat; Flow system; first Echo recording/playback; Echo interactions vs enemy/player/other Echoes; procedural arenas + validation; DifficultyDirector; complete game loop — see git log for details of each). Echo vs projectile, and difficulty control over enemy types/projectile density, are deferred until the Shooter enemy exists (no Projectile entity in the codebase yet). Next up per the PRD's phase order: Phase 9, audio + juice (SFX, dynamic music by Flow, hit-stop, particles, trails). Track phase completion via git history, not this file — update this line as phases land.
+Phases 0–9 are done (project foundation; movement prototype; dash + combat; Flow system; first Echo recording/playback; Echo interactions vs enemy/player/other Echoes; procedural arenas + validation; DifficultyDirector; complete game loop; audio + juice — see git log for details of each). Echo vs projectile, and difficulty control over enemy types/projectile density, are deferred until the Shooter enemy exists (no Projectile entity in the codebase yet). SFX/music are synthesized via WebAudio (no audio assets in the repo yet). Next up per the PRD's phase order: Phase 10, anime art pass (replace placeholder shapes with final character silhouette, animation system, slash effects, dash trails, Echo visuals, environmental style). Track phase completion via git history, not this file — update this line as phases land.
 
 ## Commands
 
