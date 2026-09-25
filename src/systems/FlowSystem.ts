@@ -34,6 +34,10 @@ export class FlowSystem {
     this.value = Math.max(0, Math.min(FLOW_MAX, this.value + amount));
   }
 
+  reset(): void {
+    this.value = 0;
+  }
+
   onDamageTaken(): void {
     this.add(-FLOW_LOSS_ON_DAMAGE);
   }

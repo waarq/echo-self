@@ -46,4 +46,16 @@ export class InputManager {
   consumeAttack(): boolean {
     return this.mouse.consumeClick() || this.touch.consumeAttack();
   }
+
+  /** Menu/results confirm gesture — Enter or Space on keyboard, or the same
+   * click/tap used for attack, so "press anything" works on every input
+   * device without a dedicated UI button (PRD §27: restart must be instant
+   * and prominent, not gated behind precise hit-testing). */
+  consumeConfirm(): boolean {
+    return (
+      this.keyboard.consumePress('Enter') ||
+      this.keyboard.consumePress('Space') ||
+      this.consumeAttack()
+    );
+  }
 }

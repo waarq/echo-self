@@ -25,6 +25,10 @@ export class ScoreSystem {
     this.value += SCORE_PER_ECHO_KILL * multiplier;
   }
 
+  reset(): void {
+    this.value = 0;
+  }
+
   get rounded(): number {
     return Math.floor(this.value);
   }

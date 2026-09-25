@@ -29,4 +29,11 @@ describe('ScoreSystem', () => {
     score.addPerfectDodge(1);
     expect(score.rounded).toBeGreaterThan(0);
   });
+
+  it('reset() returns the score to zero', () => {
+    const score = new ScoreSystem();
+    score.addEnemyKill(1);
+    score.reset();
+    expect(score.rounded).toBe(0);
+  });
 });
