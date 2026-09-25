@@ -11,6 +11,7 @@ This repository currently contains only `PRD.md` — no code, no `package.json`,
 **ECHO//SELF** — an endless single-player arcade/roguelite-lite game (web, desktop + mobile browser) built around one idea: the player fights autonomous replays of their own past actions ("Echoes"). Full design spec is in `PRD.md`; read it before implementing any feature — it is the source of truth for mechanics, phases, and constraints.
 
 ### Core mechanic
+
 The game records the player's deterministic gameplay state/events (position, velocity, facing, input, dash/attack/ability, collisions) at a fixed interval — never raw video/frames of pixels — and replays that recording as a translucent autonomous clone ("Echo") after ~15–30s. Over a run, multiple Echoes accumulate and fight the player, enemies, hazards, and each other simultaneously. This determinism requirement (fixed timestep simulation, seeded RNG per run) is the foundation the whole architecture is built to preserve — don't introduce non-deterministic gameplay state.
 
 ## Intended architecture (from PRD §31–35)
@@ -23,9 +24,9 @@ The game records the player's deterministic gameplay state/events (position, vel
 
 ## Build order (PRD §39, do not skip ahead)
 
-Phases are strictly sequential — each has a single deliverable and an acceptance bar before moving on:
-0. Project foundation (tooling, blank canvas at stable FPS)
-1. Movement prototype (must *feel* responsive before anything else is added)
+Phases are strictly sequential — each has a single deliverable and an acceptance bar before moving on: 0. Project foundation (tooling, blank canvas at stable FPS)
+
+1. Movement prototype (must _feel_ responsive before anything else is added)
 2. Dash + combat + first enemy (Chaser)
 3. Flow system (combo/score multiplier, perfect dodge, risk-reward)
 4. First Echo (record 15s → deterministic replay) — first major milestone

@@ -14,28 +14,28 @@ Endless single-player arcade action / physics / roguelite-lite / reflex / surviv
 
 Primary:
 
-* Web
-* Desktop browser
-* Mobile browser
+- Web
+- Desktop browser
+- Mobile browser
 
 Architecture should allow future packaging for:
 
-* Android
-* iOS
-* Steam / desktop
+- Android
+- iOS
+- Steam / desktop
 
 ### Input
 
 Mobile:
 
-* Touch
-* Drag
-* Tap
+- Touch
+- Drag
+- Tap
 
 Desktop:
 
-* Keyboard
-* Mouse
+- Keyboard
+- Mouse
 
 The same gameplay must work naturally on both.
 
@@ -53,11 +53,11 @@ An Echo is a recording of the player's previous behavior that is replayed as an 
 
 The player therefore gradually encounters:
 
-* their previous movement
-* their previous attacks
-* their previous mistakes
-* their previous strategies
-* eventually, their own fighting style
+- their previous movement
+- their previous attacks
+- their previous mistakes
+- their previous strategies
+- eventually, their own fighting style
 
 The game should create the psychological feeling of:
 
@@ -65,17 +65,17 @@ The game should create the psychological feeling of:
 
 The experience should be:
 
-* immediately understandable
-* extremely easy to start
-* difficult to master
-* visually minimal
-* mechanically deep
-* physically satisfying
-* fast
-* responsive
-* replayable
-* endlessly scalable
-* suitable for short 30-second sessions or long survival runs
+- immediately understandable
+- extremely easy to start
+- difficult to master
+- visually minimal
+- mechanically deep
+- physically satisfying
+- fast
+- responsive
+- replayable
+- endlessly scalable
+- suitable for short 30-second sessions or long survival runs
 
 The game must prioritize **feel over complexity**.
 
@@ -91,16 +91,16 @@ The player should require very few inputs.
 
 Desktop:
 
-* A / D or Left / Right → movement
-* Space → dash / primary action
-* E / Shift → optional ability
-* Mouse → optional directional aiming
+- A / D or Left / Right → movement
+- Space → dash / primary action
+- E / Shift → optional ability
+- Mouse → optional directional aiming
 
 Mobile:
 
-* Drag → movement / directional control
-* Release → dash / attack
-* Tap → ability
+- Drag → movement / directional control
+- Release → dash / attack
+- Tap → ability
 
 Do NOT create complicated ability bars.
 
@@ -156,15 +156,15 @@ During a run, record the player's gameplay state at a fixed simulation interval.
 
 Record:
 
-* position
-* velocity
-* facing direction
-* movement input
-* dash
-* attack
-* ability usage
-* collisions
-* important interaction events
+- position
+- velocity
+- facing direction
+- movement input
+- dash
+- attack
+- ability usage
+- collisions
+- important interaction events
 
 Do NOT record raw video.
 
@@ -250,11 +250,11 @@ The system must prevent the screen from becoming visually unreadable.
 
 Echoes should use:
 
-* reduced opacity
-* simplified effects
-* slightly different visual treatment
-* lower particle count
-* clear silhouettes
+- reduced opacity
+- simplified effects
+- slightly different visual treatment
+- lower particle count
+- clear silhouettes
 
 The player must always be immediately identifiable.
 
@@ -266,11 +266,11 @@ Echoes must not merely attack the player.
 
 They should interact with:
 
-* enemies
-* hazards
-* projectiles
-* other Echoes
-* environmental objects
+- enemies
+- hazards
+- projectiles
+- other Echoes
+- environmental objects
 
 This creates emergent situations.
 
@@ -304,30 +304,30 @@ Physics must feel extremely responsive.
 
 Implement:
 
-* acceleration
-* deceleration
-* velocity
-* friction
-* momentum
-* knockback
-* dash impulse
-* collision detection
-* wall collision
-* bounce
-* attack hitboxes
-* projectile movement
-* interpolation
-* fixed timestep simulation
+- acceleration
+- deceleration
+- velocity
+- friction
+- momentum
+- knockback
+- dash impulse
+- collision detection
+- wall collision
+- bounce
+- attack hitboxes
+- projectile movement
+- interpolation
+- fixed timestep simulation
 
 Avoid floaty movement.
 
 The character should feel:
 
-* precise
-* fast
-* controllable
-* weighty during impacts
-* extremely responsive during movement
+- precise
+- fast
+- controllable
+- weighty during impacts
+- extremely responsive during movement
 
 Prioritize gameplay responsiveness over realistic physics.
 
@@ -339,14 +339,14 @@ Dash is one of the primary mechanics.
 
 The dash should:
 
-* temporarily increase movement speed
-* provide brief invulnerability
-* create motion trail
-* create strong anime-style animation
-* interact with enemies
-* interact with projectiles
-* interact with Echoes
-* generate Flow
+- temporarily increase movement speed
+- provide brief invulnerability
+- create motion trail
+- create strong anime-style animation
+- interact with enemies
+- interact with projectiles
+- interact with Echoes
+- generate Flow
 
 Perfectly timed dashes should feel extremely satisfying.
 
@@ -364,12 +364,12 @@ PERFECT
 
 Effects:
 
-* tiny time slowdown
-* impact frame
-* screen shake
-* particle burst
-* sound effect
-* Flow increase
+- tiny time slowdown
+- impact frame
+- screen shake
+- particle burst
+- sound effect
+- Flow increase
 
 The effect must be brief.
 
@@ -393,12 +393,12 @@ attack direction
 
 Attack properties:
 
-* short range
-* fast
-* predictable
-* strong hit feedback
-* knockback
-* possible combo interaction
+- short range
+- fast
+- predictable
+- strong hit feedback
+- knockback
+- possible combo interaction
 
 Avoid complicated combos initially.
 
@@ -414,28 +414,28 @@ Flow is the player's temporary momentum score.
 
 Flow increases through:
 
-* successful attacks
-* consecutive hits
-* perfect dodges
-* killing enemies
-* destroying Echoes
-* close calls
-* movement chains
-* environmental interactions
+- successful attacks
+- consecutive hits
+- perfect dodges
+- killing enemies
+- destroying Echoes
+- close calls
+- movement chains
+- environmental interactions
 
 Flow decreases when:
 
-* player gets hit
-* player stops interacting
-* player repeatedly misses
-* player takes excessive damage
+- player gets hit
+- player stops interacting
+- player repeatedly misses
+- player takes excessive damage
 
 High Flow should increase:
 
-* score multiplier
-* visual intensity
-* music intensity
-* reward generation
+- score multiplier
+- visual intensity
+- music intensity
+- reward generation
 
 Do NOT make high Flow mandatory for survival.
 
@@ -565,24 +565,24 @@ Generate modular arenas from reusable pieces.
 
 Arena components:
 
-* platforms
-* walls
-* open areas
-* narrow passages
-* obstacles
-* hazard zones
-* spawn points
-* environmental interactables
+- platforms
+- walls
+- open areas
+- narrow passages
+- obstacles
+- hazard zones
+- spawn points
+- environmental interactables
 
 Every generated arena must satisfy gameplay constraints.
 
 Never generate:
 
-* impossible spawn positions
-* unavoidable damage
-* inaccessible areas
-* dead-end traps without escape
-* impossible projectile patterns
+- impossible spawn positions
+- unavoidable damage
+- inaccessible areas
+- dead-end traps without escape
+- impossible projectile patterns
 
 Create a validation system.
 
@@ -626,15 +626,15 @@ Additional enemies should only be introduced after the core game is fun.
 
 The player:
 
-* highest visual contrast
-* strongest animation
-* clearest outline
+- highest visual contrast
+- strongest animation
+- clearest outline
 
 Echoes:
 
-* lower opacity
-* ghost trails
-* subtle visual distortion
+- lower opacity
+- ghost trails
+- subtle visual distortion
 
 Older Echoes may visually degrade.
 
@@ -666,24 +666,24 @@ Style:
 
 Avoid:
 
-* generic anime game UI
-* excessive neon
-* cyberpunk cliché
-* giant text
-* clutter
-* excessive particles
-* generic AI-generated character art
+- generic anime game UI
+- excessive neon
+- cyberpunk cliché
+- giant text
+- clutter
+- excessive particles
+- generic AI-generated character art
 
 Use:
 
-* clean silhouettes
-* sharp anime-inspired animation
-* strong poses
-* speed lines
-* impact frames
-* controlled particle effects
-* restrained colors
-* cinematic composition
+- clean silhouettes
+- sharp anime-inspired animation
+- strong poses
+- speed lines
+- impact frames
+- controlled particle effects
+- restrained colors
+- cinematic composition
 
 The visual identity should feel premium rather than flashy.
 
@@ -695,9 +695,9 @@ Use a restrained palette.
 
 Base:
 
-* near-black
-* off-white
-* muted gray
+- near-black
+- off-white
+- muted gray
 
 One primary accent.
 
@@ -715,26 +715,26 @@ Animation is extremely important.
 
 Required animation states:
 
-* idle
-* run
-* dash
-* attack
-* hurt
-* death
-* perfect dodge
-* spawn
-* Echo playback
-* Echo death
+- idle
+- run
+- dash
+- attack
+- hurt
+- death
+- perfect dodge
+- spawn
+- Echo playback
+- Echo death
 
 Use animation principles inspired by anime action:
 
-* anticipation
-* squash/stretch
-* overshoot
-* follow-through
-* smear-like motion
-* impact frames
-* directional trails
+- anticipation
+- squash/stretch
+- overshoot
+- follow-through
+- smear-like motion
+- impact frames
+- directional trails
 
 Animation must communicate gameplay.
 
@@ -746,11 +746,11 @@ Camera should be subtle.
 
 Implement:
 
-* smooth follow
-* small impact shake
-* dash movement
-* slight dynamic zoom
-* controlled screen shake
+- smooth follow
+- small impact shake
+- dash movement
+- slight dynamic zoom
+- controlled screen shake
 
 Avoid nausea.
 
@@ -764,17 +764,17 @@ Audio must contribute significantly to game feel.
 
 Required:
 
-* dash
-* attack
-* hit
-* perfect dodge
-* enemy spawn
-* Echo spawn
-* Echo death
-* player damage
-* Flow increase
-* Flow maximum
-* death
+- dash
+- attack
+- hit
+- perfect dodge
+- enemy spawn
+- Echo spawn
+- Echo death
+- player damage
+- Flow increase
+- Flow maximum
+- death
 
 Music should dynamically change according to Flow.
 
@@ -803,7 +803,7 @@ enum GameState {
   PLAYING,
   PAUSED,
   GAME_OVER,
-  RESULTS
+  RESULTS,
 }
 ```
 
@@ -817,12 +817,12 @@ Use a centralized state machine.
 
 Primary score sources:
 
-* survival time
-* enemy kills
-* Echo kills
-* perfect dodges
-* Flow multiplier
-* risk actions
+- survival time
+- enemy kills
+- Echo kills
+- perfect dodges
+- Flow multiplier
+- risk actions
 
 Example:
 
@@ -846,13 +846,13 @@ Even without online multiplayer, create personal competition.
 
 Track:
 
-* highest score
-* longest survival
-* most Echoes defeated
-* highest Flow
-* perfect dodges
-* fastest 1-minute score
-* longest streak
+- highest score
+- longest survival
+- most Echoes defeated
+- highest Flow
+- perfect dodges
+- fastest 1-minute score
+- longest streak
 
 The player should compete against:
 
@@ -945,11 +945,11 @@ The gameplay itself should create the replay loop.
 
 Never require:
 
-* waiting
-* lives
-* stamina regeneration
-* ads to continue
-* artificial timers
+- waiting
+- lives
+- stamina regeneration
+- ads to continue
+- artificial timers
 
 The game should respect the player's time.
 
@@ -961,39 +961,39 @@ The first playable version should contain ONLY:
 
 ### Player
 
-* movement
-* dash
-* attack
-* collision
+- movement
+- dash
+- attack
+- collision
 
 ### Enemy
 
-* Chaser
+- Chaser
 
 ### Arena
 
-* one procedural arena
+- one procedural arena
 
 ### Echo
 
-* 15-second recording
-* replay
+- 15-second recording
+- replay
 
 ### Flow
 
-* basic multiplier
+- basic multiplier
 
 ### Game loop
 
-* start
-* play
-* die
-* restart
+- start
+- play
+- die
+- restart
 
 ### Input
 
-* keyboard
-* mouse/touch
+- keyboard
+- mouse/touch
 
 Nothing else.
 
@@ -1015,8 +1015,8 @@ Use a lightweight game architecture rather than building the game around DOM ele
 
 Possible libraries:
 
-* Phaser 3 OR
-* PixiJS + custom gameplay loop
+- Phaser 3 OR
+- PixiJS + custom gameplay loop
 
 Choose Phaser if it materially accelerates development.
 
@@ -1118,17 +1118,17 @@ Create a seeded random number generator.
 Each run should have:
 
 ```ts
-runSeed
+runSeed;
 ```
 
 Store it with the run.
 
 This allows:
 
-* debugging
-* replay testing
-* deterministic Echo behavior
-* future replay sharing
+- debugging
+- replay testing
+- deterministic Echo behavior
+- future replay sharing
 
 ---
 
@@ -1143,13 +1143,7 @@ Example:
 ```ts
 interface EchoEvent {
   t: number;
-  type:
-    | "MOVE"
-    | "ATTACK"
-    | "DASH"
-    | "ABILITY"
-    | "HIT"
-    | "DEATH";
+  type: 'MOVE' | 'ATTACK' | 'DASH' | 'ABILITY' | 'HIT' | 'DEATH';
   data?: unknown;
 }
 ```
@@ -1233,15 +1227,15 @@ Do not spend hours designing menus while movement feels bad.
 
 Create:
 
-* repository
-* TypeScript
-* game renderer
-* development environment
-* linting
-* formatting
-* testing
-* build system
-* basic CI
+- repository
+- TypeScript
+- game renderer
+- development environment
+- linting
+- formatting
+- testing
+- build system
+- basic CI
 
 Deliverable:
 
@@ -1253,14 +1247,14 @@ A blank game canvas running at stable FPS.
 
 Implement:
 
-* player
-* movement
-* acceleration
-* friction
-* collision
-* camera
-* keyboard input
-* touch input
+- player
+- movement
+- acceleration
+- friction
+- collision
+- camera
+- keyboard input
+- touch input
 
 Deliverable:
 
@@ -1280,20 +1274,20 @@ Do not continue until this feels good.
 
 Implement:
 
-* dash
-* invulnerability window
-* attack
-* hitbox
-* knockback
-* enemy
-* damage
-* death
+- dash
+- invulnerability window
+- attack
+- hitbox
+- knockback
+- enemy
+- damage
+- death
 
 Add:
 
-* screen shake
-* impact animation
-* sound hooks
+- screen shake
+- impact animation
+- sound hooks
 
 Deliverable:
 
@@ -1305,11 +1299,11 @@ A 30-second combat sandbox.
 
 Implement:
 
-* Flow meter
-* combo
-* score multiplier
-* perfect dodge
-* risk/reward
+- Flow meter
+- combo
+- score multiplier
+- perfect dodge
+- risk/reward
 
 Deliverable:
 
@@ -1321,12 +1315,12 @@ A player should naturally want to maintain Flow.
 
 Implement:
 
-* recording
-* playback
-* Echo rendering
-* Echo collision
-* Echo attacks
-* Echo death
+- recording
+- playback
+- Echo rendering
+- Echo collision
+- Echo attacks
+- Echo death
 
 First test:
 
@@ -1346,10 +1340,10 @@ This is the first major milestone.
 
 Implement:
 
-* Echo vs enemy
-* Echo vs projectile
-* Echo vs player
-* Echo vs Echo
+- Echo vs enemy
+- Echo vs projectile
+- Echo vs player
+- Echo vs Echo
 
 Ensure deterministic playback.
 
@@ -1363,12 +1357,12 @@ Emergent combat scenarios.
 
 Implement:
 
-* modular arena pieces
-* procedural generation
-* spawn points
-* hazards
-* validation
-* difficulty-aware generation
+- modular arena pieces
+- procedural generation
+- spawn points
+- hazards
+- validation
+- difficulty-aware generation
 
 Every arena must remain playable.
 
@@ -1379,17 +1373,17 @@ Every arena must remain playable.
 Create a central:
 
 ```ts
-DifficultyDirector
+DifficultyDirector;
 ```
 
 It controls:
 
-* enemy frequency
-* enemy types
-* projectile density
-* arena complexity
-* Echo frequency
-* hazard frequency
+- enemy frequency
+- enemy types
+- projectile density
+- arena complexity
+- Echo frequency
+- hazard frequency
 
 It must never directly make the game impossible.
 
@@ -1425,16 +1419,16 @@ Target restart latency:
 
 Add:
 
-* SFX
-* music
-* dynamic music intensity
-* impact frames
-* particles
-* trails
-* camera shake
-* hit stop
-* Flow effects
-* Echo effects
+- SFX
+- music
+- dynamic music intensity
+- impact frames
+- particles
+- trails
+- camera shake
+- hit stop
+- Flow effects
+- Echo effects
 
 This phase should dramatically improve perceived quality.
 
@@ -1444,12 +1438,12 @@ This phase should dramatically improve perceived quality.
 
 Replace placeholder shapes with:
 
-* final character silhouette
-* animation system
-* slash effects
-* dash trails
-* Echo visuals
-* environmental style
+- final character silhouette
+- animation system
+- slash effects
+- dash trails
+- Echo visuals
+- environmental style
 
 Keep visual language minimal.
 
@@ -1459,18 +1453,18 @@ Keep visual language minimal.
 
 Test on:
 
-* phone portrait
-* phone landscape
-* tablet
+- phone portrait
+- phone landscape
+- tablet
 
 Tune:
 
-* touch sensitivity
-* virtual interaction area
-* gesture recognition
-* UI scale
-* performance
-* battery consumption
+- touch sensitivity
+- virtual interaction area
+- gesture recognition
+- UI scale
+- performance
+- battery consumption
 
 ---
 
@@ -1488,12 +1482,12 @@ Target 60 FPS on reasonably modern devices.
 
 Optimize:
 
-* particles
-* collision detection
-* object pooling
-* rendering
-* Echo memory
-* procedural generation
+- particles
+- collision detection
+- object pooling
+- rendering
+- Echo memory
+- procedural generation
 
 Use object pooling for frequently created objects.
 
@@ -1503,17 +1497,17 @@ Use object pooling for frequently created objects.
 
 Polish:
 
-* menus
-* typography
-* transitions
-* sound
-* animations
-* particles
-* accessibility
-* settings
-* pause menu
-* reduced motion
-* volume controls
+- menus
+- typography
+- transitions
+- sound
+- animations
+- particles
+- accessibility
+- settings
+- pause menu
+- reduced motion
+- volume controls
 
 ---
 
@@ -1523,36 +1517,36 @@ Create automated tests for:
 
 ### Physics
 
-* movement
-* collision
-* dash
-* knockback
+- movement
+- collision
+- dash
+- knockback
 
 ### Echo
 
-* recording
-* playback
-* timing
-* determinism
+- recording
+- playback
+- timing
+- determinism
 
 ### Procedural generation
 
-* valid arena
-* reachable spawn
-* no impossible layouts
+- valid arena
+- reachable spawn
+- no impossible layouts
 
 ### Game state
 
-* pause
-* death
-* restart
-* reset
+- pause
+- death
+- restart
+- reset
 
 ### Input
 
-* keyboard
-* mouse
-* touch
+- keyboard
+- mouse
+- touch
 
 ---
 
@@ -1560,14 +1554,14 @@ Create automated tests for:
 
 Prepare:
 
-* production build
-* loading screen
-* favicon
-* metadata
-* responsive layout
-* performance profiling
-* error handling
-* analytics hooks
+- production build
+- loading screen
+- favicon
+- metadata
+- responsive layout
+- performance profiling
+- error handling
+- analytics hooks
 
 Analytics must respect privacy and should initially be optional/minimal.
 
@@ -1714,15 +1708,15 @@ Your job is NOT simply to write code.
 
 Your job is to help build a game that is:
 
-* fun
-* responsive
-* addictive
-* readable
-* performant
-* maintainable
-* visually distinctive
-* deterministic
-* playable on touch and keyboard
+- fun
+- responsive
+- addictive
+- readable
+- performant
+- maintainable
+- visually distinctive
+- deterministic
+- playable on touch and keyboard
 
 Follow the PRD above as the source of truth.
 
@@ -1828,18 +1822,18 @@ Use this development sequence.
 
 The AI must NOT:
 
-* randomly redesign the game
-* add unnecessary mechanics
-* add multiplayer
-* add complicated RPG systems
-* add loot boxes
-* add energy systems
-* add forced advertisements
-* add excessive UI
-* add generic AI-themed visual elements
-* make the game dependent on external APIs
-* replace deterministic systems with unpredictable behavior
-* sacrifice gameplay responsiveness for visual effects
+- randomly redesign the game
+- add unnecessary mechanics
+- add multiplayer
+- add complicated RPG systems
+- add loot boxes
+- add energy systems
+- add forced advertisements
+- add excessive UI
+- add generic AI-themed visual elements
+- make the game dependent on external APIs
+- replace deterministic systems with unpredictable behavior
+- sacrifice gameplay responsiveness for visual effects
 
 The AI MAY propose new mechanics only when they strengthen:
 
