@@ -4,6 +4,7 @@ const FLOW_DECAY_PER_SEC = 4;
 export const FLOW_GAIN_HIT = 8;
 export const FLOW_GAIN_KILL = 15;
 export const FLOW_GAIN_PERFECT_DODGE = 20;
+export const FLOW_GAIN_ECHO_KILL = 25;
 export const FLOW_LOSS_ON_DAMAGE = 30;
 
 export type FlowTier = 'LOW' | 'MEDIUM' | 'HIGH' | 'MAX';

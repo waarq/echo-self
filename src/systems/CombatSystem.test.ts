@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { angleDiff, isInAttackArc, resolveCombat } from './CombatSystem';
+import { angleDiff, isInAttackArc, resolveCombat, resolveEchoCombat } from './CombatSystem';
 import { Player } from '../entities/Player';
 import { CHASER_MAX_HP, Enemy } from '../entities/Enemy';
+import { Echo } from '../entities/Echo';
+import { EchoRecorder } from './EchoSystem';
 import { Camera } from '../rendering/Camera';
+
+function makeEcho(position: { x: number; y: number }): Echo {
+  const recorder = new EchoRecorder();
+  recorder.record(position, { x: 0, y: 0 }, { dash: false, attack: false });
+  return new Echo(recorder.finalize());
+}
 
 describe('angleDiff', () => {
   it('is zero for identical angles', () => {
@@ -136,5 +144,80 @@ describe('resolveCombat', () => {
 
     expect(events.playerHit).toBe(false);
     expect(player.hp).toBe(3);
+  });
+});
+
+describe('resolveEchoCombat', () => {
+  it('lets the live player damage and kill an echo with its attack, just like an enemy', () => {
+    const player = new Player({ x: 0, y: 0 });
+    player.update(1 / 60, { x: 0, y: 0 }, { dash: false, attack: true });
+    const echo = makeEcho({ x: 40, y: 0 });
+    const camera = new Camera();
+
+    const events = resolveEchoCombat(player, [echo], camera);
+
+    expect(echo.player.hp).toBe(2);
+    expect(events.hits).toBe(1);
+  });
+
+  it('reports a kill and marks the echo dead at 0 hp', () => {
+    const player = new Player({ x: 0, y: 0 });
+    player.update(1 / 60, { x: 0, y: 0 }, { dash: false, attack: true });
+    const echo = makeEcho({ x: 40, y: 0 });
+    echo.player.hp = 1;
+    const camera = new Camera();
+
+    const events = resolveEchoCombat(player, [echo], camera);
+
+    expect(events.kills).toBe(1);
+    expect(echo.alive).toBe(false);
+  });
+
+  it('does not let a dead echo be hit again', () => {
+    const player = new Player({ x: 0, y: 0 });
+    player.update(1 / 60, { x: 0, y: 0 }, { dash: false, attack: true });
+    const echo = makeEcho({ x: 40, y: 0 });
+    echo.player.hp = 0;
+    const camera = new Camera();
+
+    const events = resolveEchoCombat(player, [echo], camera);
+
+    expect(events.hits).toBe(0);
+  });
+
+  it("damages the live player via the echo's own arc attack, not contact", () => {
+    const player = new Player({ x: 0, y: 0 });
+    const echo = makeEcho({ x: 30, y: 0 });
+    echo.player.update(1 / 60, { x: -1, y: 0 }, { dash: false, attack: true });
+    const camera = new Camera();
+
+    const events = resolveEchoCombat(player, [echo], camera);
+
+    expect(events.playerHit).toBe(true);
+    expect(player.hp).toBe(2);
+  });
+
+  it('does not damage the player from echo contact alone (no attack active)', () => {
+    const player = new Player({ x: 0, y: 0 });
+    const echo = makeEcho({ x: 5, y: 0 }); // overlapping, but not attacking
+    const camera = new Camera();
+
+    const events = resolveEchoCombat(player, [echo], camera);
+
+    expect(events.playerHit).toBe(false);
+    expect(player.hp).toBe(3);
+  });
+
+  it("does not double-hit the player from the echo's single swing", () => {
+    const player = new Player({ x: 0, y: 0 });
+    const echo = makeEcho({ x: 30, y: 0 });
+    echo.player.update(1 / 60, { x: -1, y: 0 }, { dash: false, attack: true });
+    const camera = new Camera();
+
+    resolveEchoCombat(player, [echo], camera);
+    player.invulnerableTimer = 0; // simulate i-frames expiring between frames
+    resolveEchoCombat(player, [echo], camera);
+
+    expect(player.hp).toBe(2);
   });
 });

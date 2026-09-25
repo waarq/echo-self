@@ -2,11 +2,13 @@ import type { Vector2 } from '../core/Vector2';
 import { normalize, scale } from '../core/Vector2';
 import type { Player } from '../entities/Player';
 import { CHASER_CONTACT_KNOCKBACK, CHASER_TOUCH_DAMAGE, Enemy } from '../entities/Enemy';
+import type { Echo } from '../entities/Echo';
 import { circlesOverlap } from '../physics/Collision';
 import { playSfx } from '../audio/SFX';
 import type { Camera } from '../rendering/Camera';
 
 const ATTACK_KNOCKBACK = 480;
+const PLAYER_TARGET_KEY = 'player';
 
 export interface CombatEvents {
   hits: number;
@@ -55,7 +57,8 @@ export function resolveCombat(player: Player, enemies: Enemy[], camera: Camera):
   if (player.isAttacking) {
     const hitbox = player.getAttackHitbox();
     for (const enemy of enemies) {
-      if (!enemy.alive || player.hitTargetsThisSwing.has(enemy.id)) continue;
+      const key = `enemy:${enemy.id}`;
+      if (!enemy.alive || player.hitTargetsThisSwing.has(key)) continue;
       if (
         isInAttackArc(
           hitbox.origin,
@@ -66,7 +69,7 @@ export function resolveCombat(player: Player, enemies: Enemy[], camera: Camera):
           hitbox.arc,
         )
       ) {
-        player.hitTargetsThisSwing.add(enemy.id);
+        player.hitTargetsThisSwing.add(key);
         enemy.takeDamage(1);
         events.hits += 1;
         if (!enemy.alive) events.kills += 1;
@@ -104,6 +107,76 @@ export function resolveCombat(player: Player, enemies: Enemy[], camera: Camera):
           y: player.body.position.y - enemy.body.position.y,
         });
         player.body.velocity = scale(away, CHASER_CONTACT_KNOCKBACK);
+        playSfx('playerDamage');
+        camera.shake(8, 0.15);
+        break;
+      }
+    }
+  }
+
+  return events;
+}
+
+/** Echo vs. player combat: unlike a Chaser's contact damage, an Echo has the
+ * player's own kit — it only damages the live player through its (recorded)
+ * arc attack, and the live player's attack can kill it the same way it kills
+ * an enemy (PRD §4, §18: an Echo is the player, not a weaker imitation). */
+export function resolveEchoCombat(player: Player, echoes: Echo[], camera: Camera): CombatEvents {
+  const events = emptyEvents();
+
+  if (player.isAttacking) {
+    const hitbox = player.getAttackHitbox();
+    for (const echo of echoes) {
+      const key = `echo:${echo.id}`;
+      if (!echo.alive || player.hitTargetsThisSwing.has(key)) continue;
+      if (
+        isInAttackArc(
+          hitbox.origin,
+          echo.player.body.position,
+          echo.player.body.radius,
+          hitbox.facing,
+          hitbox.range,
+          hitbox.arc,
+        )
+      ) {
+        player.hitTargetsThisSwing.add(key);
+        echo.player.takeDamage(1);
+        events.hits += 1;
+        if (!echo.alive) events.kills += 1;
+        const away = normalize({
+          x: echo.player.body.position.x - hitbox.origin.x,
+          y: echo.player.body.position.y - hitbox.origin.y,
+        });
+        echo.player.body.velocity = scale(away, ATTACK_KNOCKBACK);
+        playSfx('hit');
+        camera.shake(4, 0.08);
+      }
+    }
+  }
+
+  if (!player.isInvulnerable && !player.isDead) {
+    for (const echo of echoes) {
+      if (!echo.alive || !echo.player.isAttacking) continue;
+      if (echo.player.hitTargetsThisSwing.has(PLAYER_TARGET_KEY)) continue;
+      const hitbox = echo.player.getAttackHitbox();
+      if (
+        isInAttackArc(
+          hitbox.origin,
+          player.body.position,
+          player.body.radius,
+          hitbox.facing,
+          hitbox.range,
+          hitbox.arc,
+        )
+      ) {
+        echo.player.hitTargetsThisSwing.add(PLAYER_TARGET_KEY);
+        player.takeDamage(1);
+        events.playerHit = true;
+        const away = normalize({
+          x: player.body.position.x - hitbox.origin.x,
+          y: player.body.position.y - hitbox.origin.y,
+        });
+        player.body.velocity = scale(away, ATTACK_KNOCKBACK);
         playSfx('playerDamage');
         camera.shake(8, 0.15);
         break;

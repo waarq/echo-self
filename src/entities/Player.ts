@@ -46,9 +46,9 @@ export class Player {
   private attackCooldownTimer = 0;
   private attackActiveTimer = 0;
   private attackFacing = 0;
-  /** Enemy ids already hit by the current swing, so a multi-frame hitbox
-   * only damages each target once. */
-  hitTargetsThisSwing = new Set<number>();
+  /** Target keys (e.g. "enemy:3", "echo:1", "player") already hit by the
+   * current swing, so a multi-frame hitbox only damages each target once. */
+  hitTargetsThisSwing = new Set<string>();
   /** Cleared at the start of each dash; CombatSystem sets this once it has
    * awarded the "perfect dodge" for the current dash, so a dash that stays
    * overlapped with an enemy across several frames only scores once. */

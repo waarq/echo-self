@@ -1,22 +1,27 @@
+import { FIXED_DT } from './core/Time';
 import { GameLoop } from './core/GameLoop';
 import { createRunSeed, Random } from './core/Random';
 import { GameCanvas } from './rendering/Canvas';
 import { Camera } from './rendering/Camera';
 import { renderPlayer } from './rendering/PlayerRenderer';
 import { renderEnemy } from './rendering/EnemyRenderer';
+import { renderEcho } from './rendering/EchoRenderer';
 import { renderHud } from './ui/HUD';
 import { InputManager } from './input/InputManager';
 import { Player } from './entities/Player';
 import type { Enemy } from './entities/Enemy';
+import { Echo } from './entities/Echo';
 import { resolveBoundsCollision } from './physics/Collision';
-import { resolveCombat } from './systems/CombatSystem';
+import { resolveCombat, resolveEchoCombat } from './systems/CombatSystem';
 import {
+  FLOW_GAIN_ECHO_KILL,
   FLOW_GAIN_HIT,
   FLOW_GAIN_KILL,
   FLOW_GAIN_PERFECT_DODGE,
   FlowSystem,
 } from './systems/FlowSystem';
 import { ScoreSystem } from './systems/ScoreSystem';
+import { EchoRecorder } from './systems/EchoSystem';
 import { createDefaultArena } from './world/Arena';
 import { spawnEnemyAtEdge } from './world/Spawning';
 import './style.css';
@@ -44,6 +49,12 @@ const ENEMY_RESPAWN_DELAY = 1.2;
 let playerRespawnTimer = 0;
 const PLAYER_RESPAWN_DELAY = 1.5;
 
+const echoRecorder = new EchoRecorder();
+let echoSpawned = false;
+let echoes: Echo[] = [];
+let echoDetectedTimer = 0;
+const ECHO_DETECTED_MESSAGE_SEC = 2.5;
+
 function update(dt: number): void {
   const moveAxis = input.getMoveAxis();
   const actions = {
@@ -64,22 +75,44 @@ function update(dt: number): void {
     resolveBoundsCollision(player.body, arena);
   }
 
+  if (!player.isDead && !echoSpawned) {
+    echoRecorder.record(player.body.position, moveAxis, actions);
+    if (echoRecorder.isFull(FIXED_DT)) {
+      echoes.push(new Echo(echoRecorder.finalize()));
+      echoSpawned = true;
+      echoDetectedTimer = ECHO_DETECTED_MESSAGE_SEC;
+    }
+  }
+
   for (const enemy of enemies) {
     enemy.update(dt, player.body.position);
     if (enemy.alive) resolveBoundsCollision(enemy.body, arena);
   }
 
+  for (const echo of echoes) {
+    echo.update(dt);
+    if (echo.alive) resolveBoundsCollision(echo.player.body, arena);
+  }
+
+  echoDetectedTimer = Math.max(0, echoDetectedTimer - dt);
+
   const events = resolveCombat(player, enemies, camera);
+  const echoEvents = resolveEchoCombat(player, echoes, camera);
 
   flow.update(dt);
   if (events.hits > 0) flow.add(FLOW_GAIN_HIT * events.hits);
   if (events.kills > 0) flow.add(FLOW_GAIN_KILL * events.kills);
   if (events.perfectDodges > 0) flow.add(FLOW_GAIN_PERFECT_DODGE * events.perfectDodges);
   if (events.playerHit) flow.onDamageTaken();
+  if (echoEvents.kills > 0) flow.add(FLOW_GAIN_ECHO_KILL * echoEvents.kills);
+  if (echoEvents.playerHit) flow.onDamageTaken();
 
   if (!player.isDead) score.addSurvivalTime(dt, flow.multiplier);
   for (let i = 0; i < events.kills; i++) score.addEnemyKill(flow.multiplier);
   for (let i = 0; i < events.perfectDodges; i++) score.addPerfectDodge(flow.multiplier);
+  for (let i = 0; i < echoEvents.kills; i++) score.addEchoKill(flow.multiplier);
+
+  echoes = echoes.filter((e) => e.alive);
 
   if (wasAlive && player.isDead) {
     // Clear the field so the player doesn't respawn on top of a lurking
@@ -147,9 +180,20 @@ function render(_alpha: number, fps: number): void {
   drawGrid(ctx, offset);
   drawArenaBounds(ctx, offset);
   for (const enemy of enemies) renderEnemy(ctx, enemy, offset);
+  for (const echo of echoes) renderEcho(ctx, echo, offset);
   if (!player.isDead) renderPlayer(ctx, player, offset);
 
   renderHud(ctx, player, flow, score);
+
+  if (echoDetectedTimer > 0) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, echoDetectedTimer);
+    ctx.fillStyle = '#e8e8e8';
+    ctx.font = '600 22px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('ECHO DETECTED', width / 2, 64);
+    ctx.restore();
+  }
 
   ctx.fillStyle = '#666';
   ctx.font = '400 13px system-ui, sans-serif';
