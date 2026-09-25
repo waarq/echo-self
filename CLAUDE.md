@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Phases 0–6 are done (project foundation; movement prototype; dash + combat; Flow system; first Echo recording/playback; Echo interactions vs enemy/player/other Echoes; procedural arenas + validation — see git log for details of each). Echo vs projectile is deferred until the Shooter enemy exists (no Projectile entity in the codebase yet). Next up per the PRD's phase order: Phase 7, DifficultyDirector (must never make the game literally unwinnable). Track phase completion via git history, not this file — update this line as phases land.
+Phases 0–7 are done (project foundation; movement prototype; dash + combat; Flow system; first Echo recording/playback; Echo interactions vs enemy/player/other Echoes; procedural arenas + validation; DifficultyDirector — see git log for details of each). Echo vs projectile, and difficulty control over enemy types/projectile density, are deferred until the Shooter enemy exists (no Projectile entity in the codebase yet). Next up per the PRD's phase order: Phase 8, complete game loop (menu → countdown → run → death → results → restart, target <2s restart). Track phase completion via git history, not this file — update this line as phases land.
 
 ## Commands
 

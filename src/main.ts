@@ -28,6 +28,7 @@ import {
 import { ScoreSystem } from './systems/ScoreSystem';
 import { EchoRecorder } from './systems/EchoSystem';
 import { applyHazardDamage, resolveArenaObstacles } from './systems/ArenaSystem';
+import { DifficultyDirector } from './systems/DifficultyDirector';
 import { generateArena } from './world/ArenaGenerator';
 import { spawnEnemyAtSpawnPoint } from './world/Spawning';
 import './style.css';
@@ -39,21 +40,18 @@ const input = new InputManager();
 input.attach(canvas.element);
 
 const rng = new Random(createRunSeed());
-// Fixed starting complexity for now — Phase 7's DifficultyDirector is the
-// intended future caller of generateArena's complexity parameter.
-const STARTING_ARENA_COMPLEXITY = 2;
-const arena = generateArena(rng, STARTING_ARENA_COMPLEXITY);
+const difficulty = new DifficultyDirector();
+const arena = generateArena(rng, difficulty.arenaComplexity);
 const player = new Player({ x: 0, y: 0 });
 const camera = new Camera();
 const flow = new FlowSystem();
 const score = new ScoreSystem();
 
-const SANDBOX_ENEMY_COUNT = 2;
-let enemies: Enemy[] = Array.from({ length: SANDBOX_ENEMY_COUNT }, () =>
+const INITIAL_ENEMY_COUNT = 2;
+let enemies: Enemy[] = Array.from({ length: INITIAL_ENEMY_COUNT }, () =>
   spawnEnemyAtSpawnPoint(arena, rng),
 );
 let enemyRespawnTimer = 0;
-const ENEMY_RESPAWN_DELAY = 1.2;
 
 let playerRespawnTimer = 0;
 const PLAYER_RESPAWN_DELAY = 1.5;
@@ -64,6 +62,8 @@ let echoDetectedTimer = 0;
 const ECHO_DETECTED_MESSAGE_SEC = 2.5;
 
 function update(dt: number): void {
+  difficulty.update(dt);
+
   const moveAxis = input.getMoveAxis();
   const actions = {
     dash: input.consumeDash(),
@@ -136,6 +136,12 @@ function update(dt: number): void {
   for (let i = 0; i < echoEvents.kills; i++) score.addEchoKill(flow.multiplier);
 
   echoes = echoes.filter((e) => e.alive);
+  // Cap concurrent Echoes so the field never grows past what the
+  // DifficultyDirector considers survivable (PRD Phase 7); the oldest
+  // Echoes retire first as newer ones join.
+  if (echoes.length > difficulty.maxActiveEchoes) {
+    echoes = echoes.slice(echoes.length - difficulty.maxActiveEchoes);
+  }
 
   if (wasAlive && player.isDead) {
     // Clear the field so the player doesn't respawn on top of a lurking
@@ -147,12 +153,12 @@ function update(dt: number): void {
 
   const before = enemies.length;
   enemies = enemies.filter((e) => e.alive);
-  if (enemies.length < before) enemyRespawnTimer = ENEMY_RESPAWN_DELAY;
-  if (enemies.length < SANDBOX_ENEMY_COUNT) {
+  if (enemies.length < before) enemyRespawnTimer = difficulty.enemyRespawnDelay;
+  if (enemies.length < difficulty.maxEnemies) {
     enemyRespawnTimer -= dt;
     if (enemyRespawnTimer <= 0) {
       enemies.push(spawnEnemyAtSpawnPoint(arena, rng));
-      enemyRespawnTimer = ENEMY_RESPAWN_DELAY;
+      enemyRespawnTimer = difficulty.enemyRespawnDelay;
     }
   }
 }
