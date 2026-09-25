@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Phases 0–4 are done (project foundation; movement prototype; dash + combat; Flow system; first Echo recording/playback — see git log for details of each). Next up per the PRD's phase order: Phase 5, Echo interactions (Echo vs enemy/projectile/other Echoes). Track phase completion via git history, not this file — update this line as phases land.
+Phases 0–5 are done (project foundation; movement prototype; dash + combat; Flow system; first Echo recording/playback; Echo interactions vs enemy/player/other Echoes — see git log for details of each). Echo vs projectile is deferred until the Shooter enemy exists (no Projectile entity in the codebase yet). Next up per the PRD's phase order: Phase 6, procedural arenas + validation. Track phase completion via git history, not this file — update this line as phases land.
 
 ## Commands
 

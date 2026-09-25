@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { angleDiff, isInAttackArc, resolveCombat, resolveEchoCombat } from './CombatSystem';
+import {
+  angleDiff,
+  isInAttackArc,
+  resolveCombat,
+  resolveEchoCombat,
+  resolveEnemyEchoCombat,
+  resolveEchoVsEchoCombat,
+} from './CombatSystem';
 import { Player } from '../entities/Player';
 import { CHASER_MAX_HP, Enemy } from '../entities/Enemy';
 import { Echo } from '../entities/Echo';
@@ -10,6 +17,14 @@ function makeEcho(position: { x: number; y: number }): Echo {
   const recorder = new EchoRecorder();
   recorder.record(position, { x: 0, y: 0 }, { dash: false, attack: false });
   return new Echo(recorder.finalize());
+}
+
+/** Builds an Echo whose player is already mid-attack, facing +x, so it can
+ * be used as an attacker against a target placed ahead of it. */
+function makeAttackingEcho(position: { x: number; y: number }): Echo {
+  const echo = makeEcho(position);
+  echo.player.update(1 / 60, { x: 0, y: 0 }, { dash: false, attack: true });
+  return echo;
 }
 
 describe('angleDiff', () => {
@@ -219,5 +234,123 @@ describe('resolveEchoCombat', () => {
     resolveEchoCombat(player, [echo], camera);
 
     expect(player.hp).toBe(2);
+  });
+});
+
+describe('resolveEnemyEchoCombat', () => {
+  it("damages and knocks back an enemy caught in an echo's attack arc", () => {
+    const echo = makeAttackingEcho({ x: 0, y: 0 });
+    const enemy = new Enemy({ x: 40, y: 0 });
+    const camera = new Camera();
+
+    const events = resolveEnemyEchoCombat([echo], [enemy], camera);
+
+    expect(enemy.hp).toBe(1);
+    expect(enemy.body.velocity.x).toBeGreaterThan(0);
+    expect(events.hits).toBe(1);
+  });
+
+  it('reports a kill when an echo brings the enemy to 0 hp', () => {
+    const echo = makeAttackingEcho({ x: 0, y: 0 });
+    const enemy = new Enemy({ x: 40, y: 0 });
+    enemy.hp = 1;
+    const camera = new Camera();
+
+    const events = resolveEnemyEchoCombat([echo], [enemy], camera);
+
+    expect(events.kills).toBe(1);
+    expect(enemy.alive).toBe(false);
+  });
+
+  it("only damages an enemy once per echo's swing", () => {
+    const echo = makeAttackingEcho({ x: 0, y: 0 });
+    const enemy = new Enemy({ x: 40, y: 0 });
+    const camera = new Camera();
+
+    resolveEnemyEchoCombat([echo], [enemy], camera);
+    resolveEnemyEchoCombat([echo], [enemy], camera);
+
+    expect(enemy.hp).toBe(1);
+  });
+
+  it('damages an echo on enemy contact when not invulnerable', () => {
+    const echo = makeEcho({ x: 0, y: 0 });
+    const enemy = new Enemy({ x: 5, y: 0 });
+    const camera = new Camera();
+
+    resolveEnemyEchoCombat([echo], [enemy], camera);
+
+    expect(echo.player.hp).toBe(2);
+  });
+
+  it('does not damage a dead echo or a dead enemy', () => {
+    const echo = makeAttackingEcho({ x: 0, y: 0 });
+    echo.player.hp = 0;
+    const enemy = new Enemy({ x: 40, y: 0 });
+    enemy.alive = false;
+    const camera = new Camera();
+
+    const events = resolveEnemyEchoCombat([echo], [enemy], camera);
+
+    expect(events.hits).toBe(0);
+    expect(enemy.hp).toBe(CHASER_MAX_HP);
+  });
+});
+
+describe('resolveEchoVsEchoCombat', () => {
+  it("damages and knocks back another echo caught in an attacking echo's arc", () => {
+    const attacker = makeAttackingEcho({ x: 0, y: 0 });
+    const target = makeEcho({ x: 40, y: 0 });
+    const camera = new Camera();
+
+    const events = resolveEchoVsEchoCombat([attacker, target], camera);
+
+    expect(target.player.hp).toBe(2);
+    expect(target.player.body.velocity.x).toBeGreaterThan(0);
+    expect(events.hits).toBe(1);
+  });
+
+  it('reports a kill when one echo brings another to 0 hp', () => {
+    const attacker = makeAttackingEcho({ x: 0, y: 0 });
+    const target = makeEcho({ x: 40, y: 0 });
+    target.player.hp = 1;
+    const camera = new Camera();
+
+    const events = resolveEchoVsEchoCombat([attacker, target], camera);
+
+    expect(events.kills).toBe(1);
+    expect(target.alive).toBe(false);
+  });
+
+  it('never lets an echo hit itself', () => {
+    const attacker = makeAttackingEcho({ x: 0, y: 0 });
+    const camera = new Camera();
+
+    const events = resolveEchoVsEchoCombat([attacker], camera);
+
+    expect(events.hits).toBe(0);
+    expect(attacker.player.hp).toBe(3);
+  });
+
+  it("only damages a target once per attacker's swing", () => {
+    const attacker = makeAttackingEcho({ x: 0, y: 0 });
+    const target = makeEcho({ x: 40, y: 0 });
+    const camera = new Camera();
+
+    resolveEchoVsEchoCombat([attacker, target], camera);
+    resolveEchoVsEchoCombat([attacker, target], camera);
+
+    expect(target.player.hp).toBe(2);
+  });
+
+  it('does not damage a dead target', () => {
+    const attacker = makeAttackingEcho({ x: 0, y: 0 });
+    const target = makeEcho({ x: 40, y: 0 });
+    target.player.hp = 0;
+    const camera = new Camera();
+
+    const events = resolveEchoVsEchoCombat([attacker, target], camera);
+
+    expect(events.hits).toBe(0);
   });
 });
