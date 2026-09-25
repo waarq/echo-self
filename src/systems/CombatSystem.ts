@@ -8,6 +8,17 @@ import type { Camera } from '../rendering/Camera';
 
 const ATTACK_KNOCKBACK = 480;
 
+export interface CombatEvents {
+  hits: number;
+  kills: number;
+  perfectDodges: number;
+  playerHit: boolean;
+}
+
+function emptyEvents(): CombatEvents {
+  return { hits: 0, kills: 0, perfectDodges: 0, playerHit: false };
+}
+
 /** Smallest signed difference between two angles, in [-PI, PI]. Pure so the
  * arc-hit test is unit-testable without constructing entities. */
 export function angleDiff(a: number, b: number): number {
@@ -33,10 +44,14 @@ export function isInAttackArc(
   return Math.abs(angleDiff(angleToTarget, facing)) <= arc / 2;
 }
 
-/** Applies the player's active attack hitbox to enemies, and enemy-contact
- * damage to the player. Pure entity mutation — no rendering, no audio
- * beyond the sfx hook (PRD §11, §17). */
-export function resolveCombat(player: Player, enemies: Enemy[], camera: Camera): void {
+/** Applies the player's active attack hitbox to enemies, enemy-contact
+ * damage to the player, and detects "perfect dodge" (dashing through an
+ * enemy's hit radius while the dash's i-frames absorb what would otherwise
+ * be damage — PRD §10). Returns a summary of what happened this frame so
+ * Flow/Score can react without this module depending on them (PRD §11, §17). */
+export function resolveCombat(player: Player, enemies: Enemy[], camera: Camera): CombatEvents {
+  const events = emptyEvents();
+
   if (player.isAttacking) {
     const hitbox = player.getAttackHitbox();
     for (const enemy of enemies) {
@@ -53,6 +68,8 @@ export function resolveCombat(player: Player, enemies: Enemy[], camera: Camera):
       ) {
         player.hitTargetsThisSwing.add(enemy.id);
         enemy.takeDamage(1);
+        events.hits += 1;
+        if (!enemy.alive) events.kills += 1;
         const away = normalize({
           x: enemy.body.position.x - hitbox.origin.x,
           y: enemy.body.position.y - hitbox.origin.y,
@@ -64,11 +81,24 @@ export function resolveCombat(player: Player, enemies: Enemy[], camera: Camera):
     }
   }
 
+  if (player.isDashing && !player.perfectDodgeAwardedThisDash) {
+    for (const enemy of enemies) {
+      if (enemy.alive && circlesOverlap(player.body, enemy.body)) {
+        player.perfectDodgeAwardedThisDash = true;
+        events.perfectDodges += 1;
+        playSfx('perfectDodge');
+        camera.shake(3, 0.1);
+        break;
+      }
+    }
+  }
+
   if (!player.isInvulnerable && !player.isDead) {
     for (const enemy of enemies) {
       if (!enemy.alive) continue;
       if (circlesOverlap(player.body, enemy.body)) {
         player.takeDamage(CHASER_TOUCH_DAMAGE);
+        events.playerHit = true;
         const away = normalize({
           x: player.body.position.x - enemy.body.position.x,
           y: player.body.position.y - enemy.body.position.y,
@@ -80,4 +110,6 @@ export function resolveCombat(player: Player, enemies: Enemy[], camera: Camera):
       }
     }
   }
+
+  return events;
 }

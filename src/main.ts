@@ -10,6 +10,13 @@ import { Player } from './entities/Player';
 import type { Enemy } from './entities/Enemy';
 import { resolveBoundsCollision } from './physics/Collision';
 import { resolveCombat } from './systems/CombatSystem';
+import {
+  FLOW_GAIN_HIT,
+  FLOW_GAIN_KILL,
+  FLOW_GAIN_PERFECT_DODGE,
+  FlowSystem,
+} from './systems/FlowSystem';
+import { ScoreSystem } from './systems/ScoreSystem';
 import { createDefaultArena } from './world/Arena';
 import { spawnEnemyAtEdge } from './world/Spawning';
 import './style.css';
@@ -24,8 +31,13 @@ const rng = new Random(createRunSeed());
 const arena = createDefaultArena();
 const player = new Player({ x: 0, y: 0 });
 const camera = new Camera();
+const flow = new FlowSystem();
+const score = new ScoreSystem();
 
-let enemies: Enemy[] = [spawnEnemyAtEdge(arena, rng)];
+const SANDBOX_ENEMY_COUNT = 2;
+let enemies: Enemy[] = Array.from({ length: SANDBOX_ENEMY_COUNT }, () =>
+  spawnEnemyAtEdge(arena, rng),
+);
 let enemyRespawnTimer = 0;
 const ENEMY_RESPAWN_DELAY = 1.2;
 
@@ -57,22 +69,34 @@ function update(dt: number): void {
     if (enemy.alive) resolveBoundsCollision(enemy.body, arena);
   }
 
-  resolveCombat(player, enemies, camera);
+  const events = resolveCombat(player, enemies, camera);
+
+  flow.update(dt);
+  if (events.hits > 0) flow.add(FLOW_GAIN_HIT * events.hits);
+  if (events.kills > 0) flow.add(FLOW_GAIN_KILL * events.kills);
+  if (events.perfectDodges > 0) flow.add(FLOW_GAIN_PERFECT_DODGE * events.perfectDodges);
+  if (events.playerHit) flow.onDamageTaken();
+
+  if (!player.isDead) score.addSurvivalTime(dt, flow.multiplier);
+  for (let i = 0; i < events.kills; i++) score.addEnemyKill(flow.multiplier);
+  for (let i = 0; i < events.perfectDodges; i++) score.addPerfectDodge(flow.multiplier);
 
   if (wasAlive && player.isDead) {
     // Clear the field so the player doesn't respawn on top of a lurking
     // enemy — full death/results flow lands in Phase 8.
     enemies = [];
     playerRespawnTimer = PLAYER_RESPAWN_DELAY;
+    flow.value = 0;
   }
 
   const before = enemies.length;
   enemies = enemies.filter((e) => e.alive);
   if (enemies.length < before) enemyRespawnTimer = ENEMY_RESPAWN_DELAY;
-  if (enemies.length === 0) {
+  if (enemies.length < SANDBOX_ENEMY_COUNT) {
     enemyRespawnTimer -= dt;
     if (enemyRespawnTimer <= 0) {
       enemies.push(spawnEnemyAtEdge(arena, rng));
+      enemyRespawnTimer = ENEMY_RESPAWN_DELAY;
     }
   }
 }
@@ -125,7 +149,7 @@ function render(_alpha: number, fps: number): void {
   for (const enemy of enemies) renderEnemy(ctx, enemy, offset);
   if (!player.isDead) renderPlayer(ctx, player, offset);
 
-  renderHud(ctx, player);
+  renderHud(ctx, player, flow, score);
 
   ctx.fillStyle = '#666';
   ctx.font = '400 13px system-ui, sans-serif';

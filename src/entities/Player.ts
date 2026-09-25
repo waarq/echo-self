@@ -49,6 +49,10 @@ export class Player {
   /** Enemy ids already hit by the current swing, so a multi-frame hitbox
    * only damages each target once. */
   hitTargetsThisSwing = new Set<number>();
+  /** Cleared at the start of each dash; CombatSystem sets this once it has
+   * awarded the "perfect dodge" for the current dash, so a dash that stays
+   * overlapped with an enemy across several frames only scores once. */
+  perfectDodgeAwardedThisDash = false;
 
   constructor(position: Vector2) {
     this.body = new Body(position, PLAYER_RADIUS);
@@ -128,6 +132,7 @@ export class Player {
       this.dashCooldownTimer = DASH_COOLDOWN;
       this.invulnerableTimer = Math.max(this.invulnerableTimer, DASH_DURATION);
       this.facing = Math.atan2(dir.y, dir.x);
+      this.perfectDodgeAwardedThisDash = false;
     }
 
     if (
