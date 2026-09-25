@@ -12,7 +12,12 @@ import { Player } from './entities/Player';
 import type { Enemy } from './entities/Enemy';
 import { Echo } from './entities/Echo';
 import { resolveBoundsCollision } from './physics/Collision';
-import { resolveCombat, resolveEchoCombat } from './systems/CombatSystem';
+import {
+  resolveCombat,
+  resolveEchoCombat,
+  resolveEnemyEchoCombat,
+  resolveEchoVsEchoCombat,
+} from './systems/CombatSystem';
 import {
   FLOW_GAIN_ECHO_KILL,
   FLOW_GAIN_HIT,
@@ -49,8 +54,7 @@ const ENEMY_RESPAWN_DELAY = 1.2;
 let playerRespawnTimer = 0;
 const PLAYER_RESPAWN_DELAY = 1.5;
 
-const echoRecorder = new EchoRecorder();
-let echoSpawned = false;
+let echoRecorder = new EchoRecorder();
 let echoes: Echo[] = [];
 let echoDetectedTimer = 0;
 const ECHO_DETECTED_MESSAGE_SEC = 2.5;
@@ -75,11 +79,14 @@ function update(dt: number): void {
     resolveBoundsCollision(player.body, arena);
   }
 
-  if (!player.isDead && !echoSpawned) {
+  if (!player.isDead) {
+    // Keep recording sequential 15s windows for as long as the player is
+    // alive, so multiple Echoes accumulate over a run (PRD §6) rather than
+    // capping at the single Echo Phase 4 needed to prove playback worked.
     echoRecorder.record(player.body.position, moveAxis, actions);
     if (echoRecorder.isFull(FIXED_DT)) {
       echoes.push(new Echo(echoRecorder.finalize()));
-      echoSpawned = true;
+      echoRecorder = new EchoRecorder();
       echoDetectedTimer = ECHO_DETECTED_MESSAGE_SEC;
     }
   }
@@ -98,6 +105,8 @@ function update(dt: number): void {
 
   const events = resolveCombat(player, enemies, camera);
   const echoEvents = resolveEchoCombat(player, echoes, camera);
+  resolveEnemyEchoCombat(echoes, enemies, camera);
+  resolveEchoVsEchoCombat(echoes, camera);
 
   flow.update(dt);
   if (events.hits > 0) flow.add(FLOW_GAIN_HIT * events.hits);

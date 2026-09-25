@@ -21,6 +21,20 @@ function emptyEvents(): CombatEvents {
   return { hits: 0, kills: 0, perfectDodges: 0, playerHit: false };
 }
 
+/** Outcome of a purely emergent interaction the live player had no direct
+ * part in (Echo vs enemy, Echo vs Echo) — no `playerHit`/`perfectDodges`
+ * since those are player-only concepts, and deliberately not fed into the
+ * player's Flow/Score (PRD §7: this is the player's past becoming a tool in
+ * the world, not a scoring event for the player). */
+export interface InteractionEvents {
+  hits: number;
+  kills: number;
+}
+
+function emptyInteractionEvents(): InteractionEvents {
+  return { hits: 0, kills: 0 };
+}
+
 /** Smallest signed difference between two angles, in [-PI, PI]. Pure so the
  * arc-hit test is unit-testable without constructing entities. */
 export function angleDiff(a: number, b: number): number {
@@ -180,6 +194,113 @@ export function resolveEchoCombat(player: Player, echoes: Echo[], camera: Camera
         playSfx('playerDamage');
         camera.shake(8, 0.15);
         break;
+      }
+    }
+  }
+
+  return events;
+}
+
+/** Echo vs. enemy (PRD §7, Phase 5): an Echo's recorded attack can kill an
+ * enemy exactly like the live player's can, and an enemy's contact damage
+ * hurts an Echo exactly like it hurts the live player. Neither side gets
+ * Flow/Score for it — this is the world reacting to the player's own past,
+ * not the player's own performance. */
+export function resolveEnemyEchoCombat(
+  echoes: Echo[],
+  enemies: Enemy[],
+  camera: Camera,
+): InteractionEvents {
+  const events = emptyInteractionEvents();
+
+  for (const echo of echoes) {
+    if (!echo.alive || !echo.player.isAttacking) continue;
+    const hitbox = echo.player.getAttackHitbox();
+    for (const enemy of enemies) {
+      const key = `enemy:${enemy.id}`;
+      if (!enemy.alive || echo.player.hitTargetsThisSwing.has(key)) continue;
+      if (
+        isInAttackArc(
+          hitbox.origin,
+          enemy.body.position,
+          enemy.body.radius,
+          hitbox.facing,
+          hitbox.range,
+          hitbox.arc,
+        )
+      ) {
+        echo.player.hitTargetsThisSwing.add(key);
+        enemy.takeDamage(1);
+        events.hits += 1;
+        if (!enemy.alive) events.kills += 1;
+        const away = normalize({
+          x: enemy.body.position.x - hitbox.origin.x,
+          y: enemy.body.position.y - hitbox.origin.y,
+        });
+        enemy.body.velocity = scale(away, ATTACK_KNOCKBACK);
+        playSfx('hit');
+        camera.shake(3, 0.06);
+      }
+    }
+  }
+
+  for (const enemy of enemies) {
+    if (!enemy.alive) continue;
+    for (const echo of echoes) {
+      if (!echo.alive || echo.player.isInvulnerable) continue;
+      if (circlesOverlap(echo.player.body, enemy.body)) {
+        echo.player.takeDamage(CHASER_TOUCH_DAMAGE);
+        const away = normalize({
+          x: echo.player.body.position.x - enemy.body.position.x,
+          y: echo.player.body.position.y - enemy.body.position.y,
+        });
+        echo.player.body.velocity = scale(away, CHASER_CONTACT_KNOCKBACK);
+        playSfx('hit');
+        camera.shake(3, 0.06);
+        break;
+      }
+    }
+  }
+
+  return events;
+}
+
+/** Echo vs. Echo (PRD §6, §7, Phase 5): once multiple Echoes are alive at
+ * once, each one's recorded attack can land on any other Echo, the same way
+ * it lands on the live player or an enemy. Mirrors resolveEchoCombat's
+ * "attack only, no contact damage" rule — an Echo is the player, and the
+ * player never takes contact damage from another player. */
+export function resolveEchoVsEchoCombat(echoes: Echo[], camera: Camera): InteractionEvents {
+  const events = emptyInteractionEvents();
+
+  for (const attacker of echoes) {
+    if (!attacker.alive || !attacker.player.isAttacking) continue;
+    const hitbox = attacker.player.getAttackHitbox();
+    for (const target of echoes) {
+      if (target === attacker) continue;
+      const key = `echo:${target.id}`;
+      if (!target.alive || attacker.player.hitTargetsThisSwing.has(key)) continue;
+      if (
+        isInAttackArc(
+          hitbox.origin,
+          target.player.body.position,
+          target.player.body.radius,
+          hitbox.facing,
+          hitbox.range,
+          hitbox.arc,
+        )
+      ) {
+        attacker.player.hitTargetsThisSwing.add(key);
+        target.player.takeDamage(1);
+        events.hits += 1;
+        if (!target.alive) events.kills += 1;
+        const away = normalize({
+          x: target.player.body.position.x - hitbox.origin.x,
+          y: target.player.body.position.y - hitbox.origin.y,
+        });
+        target.player.body.velocity = scale(away, ATTACK_KNOCKBACK);
+        playSfx('hit');
+        camera.shake(3, 0.06);
       }
     }
   }
