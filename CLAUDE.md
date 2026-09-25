@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Phase 0 (project foundation) is done: Vite + TypeScript + Canvas2D, ESLint, Prettier, Vitest, GitHub Actions CI. Current phase in progress: see the most recent commits / ask the user if unclear. Track phase completion via git history, not this file.
+Phases 0–4 are done (project foundation; movement prototype; dash + combat; Flow system; first Echo recording/playback — see git log for details of each). Next up per the PRD's phase order: Phase 5, Echo interactions (Echo vs enemy/projectile/other Echoes). Track phase completion via git history, not this file — update this line as phases land.
 
 ## Commands
 
