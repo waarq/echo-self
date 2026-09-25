@@ -27,8 +27,9 @@ import {
 } from './systems/FlowSystem';
 import { ScoreSystem } from './systems/ScoreSystem';
 import { EchoRecorder } from './systems/EchoSystem';
-import { createDefaultArena } from './world/Arena';
-import { spawnEnemyAtEdge } from './world/Spawning';
+import { applyHazardDamage, resolveArenaObstacles } from './systems/ArenaSystem';
+import { generateArena } from './world/ArenaGenerator';
+import { spawnEnemyAtSpawnPoint } from './world/Spawning';
 import './style.css';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -38,7 +39,10 @@ const input = new InputManager();
 input.attach(canvas.element);
 
 const rng = new Random(createRunSeed());
-const arena = createDefaultArena();
+// Fixed starting complexity for now — Phase 7's DifficultyDirector is the
+// intended future caller of generateArena's complexity parameter.
+const STARTING_ARENA_COMPLEXITY = 2;
+const arena = generateArena(rng, STARTING_ARENA_COMPLEXITY);
 const player = new Player({ x: 0, y: 0 });
 const camera = new Camera();
 const flow = new FlowSystem();
@@ -46,7 +50,7 @@ const score = new ScoreSystem();
 
 const SANDBOX_ENEMY_COUNT = 2;
 let enemies: Enemy[] = Array.from({ length: SANDBOX_ENEMY_COUNT }, () =>
-  spawnEnemyAtEdge(arena, rng),
+  spawnEnemyAtSpawnPoint(arena, rng),
 );
 let enemyRespawnTimer = 0;
 const ENEMY_RESPAWN_DELAY = 1.2;
@@ -76,7 +80,9 @@ function update(dt: number): void {
     }
   } else {
     player.update(dt, moveAxis, actions);
-    resolveBoundsCollision(player.body, arena);
+    resolveBoundsCollision(player.body, arena.bounds);
+    resolveArenaObstacles(player.body, arena);
+    applyHazardDamage(player, arena.hazards);
   }
 
   if (!player.isDead) {
@@ -93,12 +99,20 @@ function update(dt: number): void {
 
   for (const enemy of enemies) {
     enemy.update(dt, player.body.position);
-    if (enemy.alive) resolveBoundsCollision(enemy.body, arena);
+    if (enemy.alive) {
+      resolveBoundsCollision(enemy.body, arena.bounds);
+      resolveArenaObstacles(enemy.body, arena);
+      applyHazardDamage(enemy, arena.hazards);
+    }
   }
 
   for (const echo of echoes) {
     echo.update(dt);
-    if (echo.alive) resolveBoundsCollision(echo.player.body, arena);
+    if (echo.alive) {
+      resolveBoundsCollision(echo.player.body, arena.bounds);
+      resolveArenaObstacles(echo.player.body, arena);
+      applyHazardDamage(echo.player, arena.hazards);
+    }
   }
 
   echoDetectedTimer = Math.max(0, echoDetectedTimer - dt);
@@ -137,7 +151,7 @@ function update(dt: number): void {
   if (enemies.length < SANDBOX_ENEMY_COUNT) {
     enemyRespawnTimer -= dt;
     if (enemyRespawnTimer <= 0) {
-      enemies.push(spawnEnemyAtEdge(arena, rng));
+      enemies.push(spawnEnemyAtSpawnPoint(arena, rng));
       enemyRespawnTimer = ENEMY_RESPAWN_DELAY;
     }
   }
@@ -165,11 +179,33 @@ function drawArenaBounds(ctx: CanvasRenderingContext2D, offset: { x: number; y: 
   ctx.strokeStyle = '#333';
   ctx.lineWidth = 2;
   ctx.strokeRect(
-    arena.minX + offset.x,
-    arena.minY + offset.y,
-    arena.maxX - arena.minX,
-    arena.maxY - arena.minY,
+    arena.bounds.minX + offset.x,
+    arena.bounds.minY + offset.y,
+    arena.bounds.maxX - arena.bounds.minX,
+    arena.bounds.maxY - arena.bounds.minY,
   );
+
+  ctx.fillStyle = '#2a2a2a';
+  ctx.strokeStyle = '#444';
+  for (const obstacle of arena.obstacles) {
+    const x = obstacle.minX + offset.x;
+    const y = obstacle.minY + offset.y;
+    const w = obstacle.maxX - obstacle.minX;
+    const h = obstacle.maxY - obstacle.minY;
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeRect(x, y, w, h);
+  }
+
+  ctx.fillStyle = 'rgba(200, 40, 40, 0.25)';
+  ctx.strokeStyle = 'rgba(200, 40, 40, 0.6)';
+  for (const hazard of arena.hazards) {
+    const x = hazard.minX + offset.x;
+    const y = hazard.minY + offset.y;
+    const w = hazard.maxX - hazard.minX;
+    const h = hazard.maxY - hazard.minY;
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeRect(x, y, w, h);
+  }
 }
 
 let lastRenderTime = performance.now();
