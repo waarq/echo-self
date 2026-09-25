@@ -39,6 +39,13 @@ describe('FlowSystem', () => {
     expect(flow.value).toBe(0);
   });
 
+  it('reset() returns Flow to zero', () => {
+    const flow = new FlowSystem();
+    flow.add(80);
+    flow.reset();
+    expect(flow.value).toBe(0);
+  });
+
   it('decays over time', () => {
     const flow = new FlowSystem();
     flow.add(50);

@@ -1,5 +1,6 @@
 import { FIXED_DT } from './core/Time';
 import { GameLoop } from './core/GameLoop';
+import { GameState, GameStateMachine } from './core/GameState';
 import { createRunSeed, Random } from './core/Random';
 import { GameCanvas } from './rendering/Canvas';
 import { Camera } from './rendering/Camera';
@@ -7,6 +8,10 @@ import { renderPlayer } from './rendering/PlayerRenderer';
 import { renderEnemy } from './rendering/EnemyRenderer';
 import { renderEcho } from './rendering/EchoRenderer';
 import { renderHud } from './ui/HUD';
+import { renderMenu } from './ui/MenuScreen';
+import { renderCountdown } from './ui/CountdownScreen';
+import { renderResults } from './ui/ResultsScreen';
+import type { RunSummary } from './ui/ResultsScreen';
 import { InputManager } from './input/InputManager';
 import { Player } from './entities/Player';
 import type { Enemy } from './entities/Enemy';
@@ -26,9 +31,11 @@ import {
   FlowSystem,
 } from './systems/FlowSystem';
 import { ScoreSystem } from './systems/ScoreSystem';
+import { RunStats } from './systems/RunStats';
 import { EchoRecorder } from './systems/EchoSystem';
 import { applyHazardDamage, resolveArenaObstacles } from './systems/ArenaSystem';
 import { DifficultyDirector } from './systems/DifficultyDirector';
+import { createDefaultArena, type Arena } from './world/Arena';
 import { generateArena } from './world/ArenaGenerator';
 import { spawnEnemyAtSpawnPoint } from './world/Spawning';
 import './style.css';
@@ -39,30 +46,79 @@ const canvas = new GameCanvas(app);
 const input = new InputManager();
 input.attach(canvas.element);
 
+// Countdown before the very first run gives the player a beat to orient;
+// restarting from RESULTS uses a much shorter one so death -> back-in-play
+// stays well under the PRD §27 "restart within 2 seconds" target.
+const INITIAL_COUNTDOWN_SEC = 3;
+const RESTART_COUNTDOWN_SEC = 0.4;
+const DEATH_SEQUENCE_SEC = 0.6; // PRD §27: time freeze / impact frame beat before RESULTS
+const INITIAL_ENEMY_COUNT = 2;
+const ECHO_DETECTED_MESSAGE_SEC = 2.5;
+
 const rng = new Random(createRunSeed());
-const difficulty = new DifficultyDirector();
-const arena = generateArena(rng, difficulty.arenaComplexity);
+const gameState = new GameStateMachine();
+
 const player = new Player({ x: 0, y: 0 });
 const camera = new Camera();
 const flow = new FlowSystem();
 const score = new ScoreSystem();
+const runStats = new RunStats();
 
-const INITIAL_ENEMY_COUNT = 2;
-let enemies: Enemy[] = Array.from({ length: INITIAL_ENEMY_COUNT }, () =>
-  spawnEnemyAtSpawnPoint(arena, rng),
-);
+let difficulty = new DifficultyDirector();
+let arena: Arena = createDefaultArena();
+let enemies: Enemy[] = [];
 let enemyRespawnTimer = 0;
-
-let playerRespawnTimer = 0;
-const PLAYER_RESPAWN_DELAY = 1.5;
-
 let echoRecorder = new EchoRecorder();
 let echoes: Echo[] = [];
 let echoDetectedTimer = 0;
-const ECHO_DETECTED_MESSAGE_SEC = 2.5;
+let countdownRemaining = 0;
+let deathTimer = 0;
 
-function update(dt: number): void {
+/** Resets every per-run system to a fresh state and arms the countdown that
+ * leads into PLAYING. Shared by the first MENU->COUNTDOWN start and every
+ * RESULTS->COUNTDOWN restart, so both paths behave identically. */
+function startRun(countdownSec: number): void {
+  difficulty = new DifficultyDirector();
+  arena = generateArena(rng, difficulty.arenaComplexity);
+  player.reset({ x: 0, y: 0 });
+  enemies = Array.from({ length: INITIAL_ENEMY_COUNT }, () => spawnEnemyAtSpawnPoint(arena, rng));
+  enemyRespawnTimer = 0;
+  echoRecorder = new EchoRecorder();
+  echoes = [];
+  echoDetectedTimer = 0;
+  flow.reset();
+  score.reset();
+  runStats.reset();
+  countdownRemaining = countdownSec;
+}
+
+function buildRunSummary(): RunSummary {
+  return {
+    survivalTimeSec: runStats.survivalTimeSec,
+    score: score.rounded,
+    echoesCreated: runStats.echoesCreated,
+    perfectDodges: runStats.perfectDodges,
+    maxFlowMultiplier: runStats.maxFlowMultiplier,
+  };
+}
+
+function updateMenu(): void {
+  if (input.consumeConfirm()) {
+    startRun(INITIAL_COUNTDOWN_SEC);
+    gameState.transition(GameState.COUNTDOWN);
+  }
+}
+
+function updateCountdown(dt: number): void {
+  countdownRemaining = Math.max(0, countdownRemaining - dt);
+  if (countdownRemaining <= 0) {
+    gameState.transition(GameState.PLAYING);
+  }
+}
+
+function updatePlaying(dt: number): void {
   difficulty.update(dt);
+  runStats.update(dt);
 
   const moveAxis = input.getMoveAxis();
   const actions = {
@@ -73,28 +129,20 @@ function update(dt: number): void {
 
   const wasAlive = !player.isDead;
 
-  if (player.isDead) {
-    playerRespawnTimer -= dt;
-    if (playerRespawnTimer <= 0) {
-      player.reset({ x: 0, y: 0 });
-    }
-  } else {
-    player.update(dt, moveAxis, actions);
-    resolveBoundsCollision(player.body, arena.bounds);
-    resolveArenaObstacles(player.body, arena);
-    applyHazardDamage(player, arena.hazards);
-  }
+  player.update(dt, moveAxis, actions);
+  resolveBoundsCollision(player.body, arena.bounds);
+  resolveArenaObstacles(player.body, arena);
+  applyHazardDamage(player, arena.hazards);
 
-  if (!player.isDead) {
-    // Keep recording sequential 15s windows for as long as the player is
-    // alive, so multiple Echoes accumulate over a run (PRD §6) rather than
-    // capping at the single Echo Phase 4 needed to prove playback worked.
-    echoRecorder.record(player.body.position, moveAxis, actions);
-    if (echoRecorder.isFull(FIXED_DT)) {
-      echoes.push(new Echo(echoRecorder.finalize()));
-      echoRecorder = new EchoRecorder();
-      echoDetectedTimer = ECHO_DETECTED_MESSAGE_SEC;
-    }
+  // Keep recording sequential 15s windows for as long as the player is
+  // alive, so multiple Echoes accumulate over a run (PRD §6) rather than
+  // capping at the single Echo Phase 4 needed to prove playback worked.
+  echoRecorder.record(player.body.position, moveAxis, actions);
+  if (echoRecorder.isFull(FIXED_DT)) {
+    echoes.push(new Echo(echoRecorder.finalize()));
+    echoRecorder = new EchoRecorder();
+    echoDetectedTimer = ECHO_DETECTED_MESSAGE_SEC;
+    runStats.onEchoCreated();
   }
 
   for (const enemy of enemies) {
@@ -129,11 +177,13 @@ function update(dt: number): void {
   if (events.playerHit) flow.onDamageTaken();
   if (echoEvents.kills > 0) flow.add(FLOW_GAIN_ECHO_KILL * echoEvents.kills);
   if (echoEvents.playerHit) flow.onDamageTaken();
+  runStats.trackFlowMultiplier(flow.multiplier);
 
-  if (!player.isDead) score.addSurvivalTime(dt, flow.multiplier);
+  score.addSurvivalTime(dt, flow.multiplier);
   for (let i = 0; i < events.kills; i++) score.addEnemyKill(flow.multiplier);
   for (let i = 0; i < events.perfectDodges; i++) score.addPerfectDodge(flow.multiplier);
   for (let i = 0; i < echoEvents.kills; i++) score.addEchoKill(flow.multiplier);
+  if (events.perfectDodges > 0) runStats.onPerfectDodges(events.perfectDodges);
 
   echoes = echoes.filter((e) => e.alive);
   // Cap concurrent Echoes so the field never grows past what the
@@ -141,14 +191,6 @@ function update(dt: number): void {
   // Echoes retire first as newer ones join.
   if (echoes.length > difficulty.maxActiveEchoes) {
     echoes = echoes.slice(echoes.length - difficulty.maxActiveEchoes);
-  }
-
-  if (wasAlive && player.isDead) {
-    // Clear the field so the player doesn't respawn on top of a lurking
-    // enemy — full death/results flow lands in Phase 8.
-    enemies = [];
-    playerRespawnTimer = PLAYER_RESPAWN_DELAY;
-    flow.value = 0;
   }
 
   const before = enemies.length;
@@ -160,6 +202,51 @@ function update(dt: number): void {
       enemies.push(spawnEnemyAtSpawnPoint(arena, rng));
       enemyRespawnTimer = difficulty.enemyRespawnDelay;
     }
+  }
+
+  if (wasAlive && player.isDead) {
+    // PRD §27's death sequence: freeze the field (nothing below this branch
+    // updates while GAME_OVER holds) for a short impact beat before the run
+    // summary appears.
+    camera.shake(10, DEATH_SEQUENCE_SEC * 0.5);
+    deathTimer = DEATH_SEQUENCE_SEC;
+    gameState.transition(GameState.GAME_OVER);
+  }
+}
+
+function updateGameOver(dt: number): void {
+  deathTimer = Math.max(0, deathTimer - dt);
+  if (deathTimer <= 0) {
+    gameState.transition(GameState.RESULTS);
+  }
+}
+
+function updateResults(): void {
+  if (input.consumeConfirm()) {
+    startRun(RESTART_COUNTDOWN_SEC);
+    gameState.transition(GameState.COUNTDOWN);
+  }
+}
+
+function update(dt: number): void {
+  switch (gameState.state) {
+    case GameState.MENU:
+      updateMenu();
+      break;
+    case GameState.COUNTDOWN:
+      updateCountdown(dt);
+      break;
+    case GameState.PLAYING:
+      updatePlaying(dt);
+      break;
+    case GameState.GAME_OVER:
+      updateGameOver(dt);
+      break;
+    case GameState.RESULTS:
+      updateResults();
+      break;
+    case GameState.PAUSED:
+      break;
   }
 }
 
@@ -214,19 +301,10 @@ function drawArenaBounds(ctx: CanvasRenderingContext2D, offset: { x: number; y: 
   }
 }
 
-let lastRenderTime = performance.now();
-
-function render(_alpha: number, fps: number): void {
-  const now = performance.now();
-  const renderDt = Math.min((now - lastRenderTime) / 1000, 0.1);
-  lastRenderTime = now;
-
+function renderWorld(width: number, height: number, renderDt: number): void {
+  const { ctx } = canvas;
   camera.follow(player.body.position, renderDt);
-  const offset = camera.getOffset(canvas.width, canvas.height, renderDt);
-
-  const { ctx, width, height } = canvas;
-  ctx.fillStyle = '#0a0a0a';
-  ctx.fillRect(0, 0, width, height);
+  const offset = camera.getOffset(width, height, renderDt);
 
   drawGrid(ctx, offset);
   drawArenaBounds(ctx, offset);
@@ -244,6 +322,40 @@ function render(_alpha: number, fps: number): void {
     ctx.textAlign = 'center';
     ctx.fillText('ECHO DETECTED', width / 2, 64);
     ctx.restore();
+  }
+
+  if (gameState.state === GameState.COUNTDOWN) {
+    renderCountdown(ctx, width, height, countdownRemaining);
+  }
+  if (gameState.state === GameState.GAME_OVER) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(200, 20, 20, 0.15)';
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
+}
+
+let lastRenderTime = performance.now();
+
+function render(_alpha: number, fps: number): void {
+  const now = performance.now();
+  const renderDt = Math.min((now - lastRenderTime) / 1000, 0.1);
+  lastRenderTime = now;
+
+  const { ctx, width, height } = canvas;
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, width, height);
+
+  switch (gameState.state) {
+    case GameState.MENU:
+      renderMenu(ctx, width, height);
+      break;
+    case GameState.RESULTS:
+      renderResults(ctx, width, height, buildRunSummary());
+      break;
+    default:
+      renderWorld(width, height, renderDt);
+      break;
   }
 
   ctx.fillStyle = '#666';
