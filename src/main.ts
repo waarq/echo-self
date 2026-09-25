@@ -7,13 +7,16 @@ import { Camera } from './rendering/Camera';
 import { renderPlayer } from './rendering/PlayerRenderer';
 import { renderEnemy } from './rendering/EnemyRenderer';
 import { renderEcho } from './rendering/EchoRenderer';
+import { renderParticles } from './rendering/ParticleRenderer';
+import { MotionTrail } from './rendering/Trail';
+import { renderTrail } from './rendering/TrailRenderer';
 import { renderHud } from './ui/HUD';
 import { renderMenu } from './ui/MenuScreen';
 import { renderCountdown } from './ui/CountdownScreen';
 import { renderResults } from './ui/ResultsScreen';
 import type { RunSummary } from './ui/ResultsScreen';
 import { InputManager } from './input/InputManager';
-import { Player } from './entities/Player';
+import { Player, PLAYER_RADIUS } from './entities/Player';
 import type { Enemy } from './entities/Enemy';
 import { Echo } from './entities/Echo';
 import { resolveBoundsCollision } from './physics/Collision';
@@ -30,11 +33,16 @@ import {
   FLOW_GAIN_PERFECT_DODGE,
   FlowSystem,
 } from './systems/FlowSystem';
+import type { FlowTier } from './systems/FlowSystem';
 import { ScoreSystem } from './systems/ScoreSystem';
 import { RunStats } from './systems/RunStats';
 import { EchoRecorder } from './systems/EchoSystem';
 import { applyHazardDamage, resolveArenaObstacles } from './systems/ArenaSystem';
 import { DifficultyDirector } from './systems/DifficultyDirector';
+import { HitStopController } from './systems/HitStop';
+import { ParticleSystem } from './systems/ParticleSystem';
+import { playSfx } from './audio/SFX';
+import { MusicDirector } from './audio/Music';
 import { createDefaultArena, type Arena } from './world/Arena';
 import { generateArena } from './world/ArenaGenerator';
 import { spawnEnemyAtSpawnPoint } from './world/Spawning';
@@ -54,6 +62,10 @@ const RESTART_COUNTDOWN_SEC = 0.4;
 const DEATH_SEQUENCE_SEC = 0.6; // PRD §27: time freeze / impact frame beat before RESULTS
 const INITIAL_ENEMY_COUNT = 2;
 const ECHO_DETECTED_MESSAGE_SEC = 2.5;
+const DASH_TRAIL_LIFETIME_SEC = 0.22;
+const PLAYER_DEATH_BURST = { count: 16, speed: 200, lifetime: 0.4, radius: 3, color: '#ff5c5c' };
+
+const FLOW_TIER_RANK: Record<FlowTier, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, MAX: 3 };
 
 const rng = new Random(createRunSeed());
 const gameState = new GameStateMachine();
@@ -63,6 +75,10 @@ const camera = new Camera();
 const flow = new FlowSystem();
 const score = new ScoreSystem();
 const runStats = new RunStats();
+const hitStop = new HitStopController();
+const particles = new ParticleSystem();
+const playerTrail = new MotionTrail(DASH_TRAIL_LIFETIME_SEC);
+const music = new MusicDirector();
 
 let difficulty = new DifficultyDirector();
 let arena: Arena = createDefaultArena();
@@ -73,6 +89,8 @@ let echoes: Echo[] = [];
 let echoDetectedTimer = 0;
 let countdownRemaining = 0;
 let deathTimer = 0;
+let previousFlowTier: FlowTier = 'LOW';
+let flowMaxPlayedThisRun = false;
 
 /** Resets every per-run system to a fresh state and arms the countdown that
  * leads into PLAYING. Shared by the first MENU->COUNTDOWN start and every
@@ -89,7 +107,12 @@ function startRun(countdownSec: number): void {
   flow.reset();
   score.reset();
   runStats.reset();
+  particles.clear();
+  playerTrail.clear();
+  previousFlowTier = 'LOW';
+  flowMaxPlayedThisRun = false;
   countdownRemaining = countdownSec;
+  music.start(); // no-op if already running (browsers require the user gesture that got us here)
 }
 
 function buildRunSummary(): RunSummary {
@@ -119,6 +142,8 @@ function updateCountdown(dt: number): void {
 function updatePlaying(dt: number): void {
   difficulty.update(dt);
   runStats.update(dt);
+  particles.update(dt);
+  playerTrail.update(dt);
 
   const moveAxis = input.getMoveAxis();
   const actions = {
@@ -128,11 +153,17 @@ function updatePlaying(dt: number): void {
   };
 
   const wasAlive = !player.isDead;
+  const wasDashing = player.isDashing;
+  const wasAttacking = player.isAttacking;
 
   player.update(dt, moveAxis, actions);
   resolveBoundsCollision(player.body, arena.bounds);
   resolveArenaObstacles(player.body, arena);
   applyHazardDamage(player, arena.hazards);
+
+  if (!wasDashing && player.isDashing) playSfx('dash');
+  if (!wasAttacking && player.isAttacking) playSfx('attack');
+  if (player.isDashing) playerTrail.record(player.body.position);
 
   // Keep recording sequential 15s windows for as long as the player is
   // alive, so multiple Echoes accumulate over a run (PRD §6) rather than
@@ -143,6 +174,7 @@ function updatePlaying(dt: number): void {
     echoRecorder = new EchoRecorder();
     echoDetectedTimer = ECHO_DETECTED_MESSAGE_SEC;
     runStats.onEchoCreated();
+    playSfx('echoSpawn');
   }
 
   for (const enemy of enemies) {
@@ -165,10 +197,10 @@ function updatePlaying(dt: number): void {
 
   echoDetectedTimer = Math.max(0, echoDetectedTimer - dt);
 
-  const events = resolveCombat(player, enemies, camera);
-  const echoEvents = resolveEchoCombat(player, echoes, camera);
-  resolveEnemyEchoCombat(echoes, enemies, camera);
-  resolveEchoVsEchoCombat(echoes, camera);
+  const events = resolveCombat(player, enemies, camera, particles, hitStop);
+  const echoEvents = resolveEchoCombat(player, echoes, camera, particles, hitStop);
+  resolveEnemyEchoCombat(echoes, enemies, camera, particles);
+  resolveEchoVsEchoCombat(echoes, camera, particles);
 
   flow.update(dt);
   if (events.hits > 0) flow.add(FLOW_GAIN_HIT * events.hits);
@@ -179,11 +211,29 @@ function updatePlaying(dt: number): void {
   if (echoEvents.playerHit) flow.onDamageTaken();
   runStats.trackFlowMultiplier(flow.multiplier);
 
+  // Flow effects (PRD §23): a rising sting when Flow climbs a tier, and a
+  // distinct, louder one the first time it reaches MAX each run.
+  if (FLOW_TIER_RANK[flow.tier] > FLOW_TIER_RANK[previousFlowTier]) {
+    if (flow.tier === 'MAX' && !flowMaxPlayedThisRun) {
+      playSfx('flowMax');
+      flowMaxPlayedThisRun = true;
+    } else {
+      playSfx('flowIncrease');
+    }
+  }
+  previousFlowTier = flow.tier;
+
   score.addSurvivalTime(dt, flow.multiplier);
   for (let i = 0; i < events.kills; i++) score.addEnemyKill(flow.multiplier);
   for (let i = 0; i < events.perfectDodges; i++) score.addPerfectDodge(flow.multiplier);
   for (let i = 0; i < echoEvents.kills; i++) score.addEchoKill(flow.multiplier);
   if (events.perfectDodges > 0) runStats.onPerfectDodges(events.perfectDodges);
+
+  // Echo effects (PRD §23): a distinct sound the moment an Echo goes down,
+  // regardless of what killed it (attack, hazard, or enemy contact).
+  for (const echo of echoes) {
+    if (!echo.alive) playSfx('echoDeath');
+  }
 
   echoes = echoes.filter((e) => e.alive);
   // Cap concurrent Echoes so the field never grows past what the
@@ -201,6 +251,7 @@ function updatePlaying(dt: number): void {
     if (enemyRespawnTimer <= 0) {
       enemies.push(spawnEnemyAtSpawnPoint(arena, rng));
       enemyRespawnTimer = difficulty.enemyRespawnDelay;
+      playSfx('enemySpawn');
     }
   }
 
@@ -208,6 +259,8 @@ function updatePlaying(dt: number): void {
     // PRD §27's death sequence: freeze the field (nothing below this branch
     // updates while GAME_OVER holds) for a short impact beat before the run
     // summary appears.
+    playSfx('death');
+    particles.spawnBurst(player.body.position, PLAYER_DEATH_BURST);
     camera.shake(10, DEATH_SEQUENCE_SEC * 0.5);
     deathTimer = DEATH_SEQUENCE_SEC;
     gameState.transition(GameState.GAME_OVER);
@@ -229,6 +282,8 @@ function updateResults(): void {
 }
 
 function update(dt: number): void {
+  music.update(dt, flow.tier);
+
   switch (gameState.state) {
     case GameState.MENU:
       updateMenu();
@@ -237,7 +292,9 @@ function update(dt: number): void {
       updateCountdown(dt);
       break;
     case GameState.PLAYING:
-      updatePlaying(dt);
+      // Hit-stop (PRD §10, §21) freezes whole fixed-timestep ticks rather
+      // than scaling dt, so the freeze can't desync anything deterministic.
+      if (!hitStop.tick(dt)) updatePlaying(dt);
       break;
     case GameState.GAME_OVER:
       updateGameOver(dt);
@@ -309,8 +366,10 @@ function renderWorld(width: number, height: number, renderDt: number): void {
   drawGrid(ctx, offset);
   drawArenaBounds(ctx, offset);
   for (const enemy of enemies) renderEnemy(ctx, enemy, offset);
-  for (const echo of echoes) renderEcho(ctx, echo, offset);
+  echoes.forEach((echo, index) => renderEcho(ctx, echo, offset, index));
+  renderTrail(ctx, playerTrail.points, PLAYER_RADIUS, '#4da6ff', offset);
   if (!player.isDead) renderPlayer(ctx, player, offset);
+  renderParticles(ctx, particles.particles, offset);
 
   renderHud(ctx, player, flow, score);
 
