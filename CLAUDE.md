@@ -4,7 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-This repository currently contains only `PRD.md` — no code, no `package.json`, no build tooling, and it is not yet a git repository. There are no build/lint/test commands to run yet. Phase 0 (project foundation: repo init, TypeScript setup, renderer, linting, testing, build system, CI) has not been done. When asked to start implementation, begin there before any gameplay code, and set up the actual commands (build/lint/test/dev) as part of that phase — then record them here.
+Phase 0 (project foundation) is done: Vite + TypeScript + Canvas2D, ESLint, Prettier, Vitest, GitHub Actions CI. Current phase in progress: see the most recent commits / ask the user if unclear. Track phase completion via git history, not this file.
+
+## Commands
+
+- `npm run dev` — start the Vite dev server
+- `npm run build` — typecheck (`tsc`) then production build to `dist/`
+- `npm run preview` — preview the production build
+- `npm run typecheck` — `tsc --noEmit`
+- `npm run lint` — ESLint over the whole repo
+- `npm run format` / `npm run format:check` — Prettier write / check
+- `npm test` — run the Vitest suite once (`npm run test:watch` for watch mode)
+- Run a single test file: `npx vitest run src/core/Random.test.ts`
+
+CI (`.github/workflows/ci.yml`) runs format:check, lint, typecheck, test, and build on every push/PR — run all five locally before considering a task done.
 
 ## What this project is
 
